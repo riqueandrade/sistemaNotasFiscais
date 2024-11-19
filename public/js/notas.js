@@ -16,21 +16,48 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('userName').textContent = usuario.nome;
     }
     
-    // Carregar dados necessários
-    await Promise.all([
-        carregarNotas(),
-        carregarClientes(),
-        carregarProdutos()
-    ]);
-    
-    // Adicionar listeners para filtros
-    document.getElementById('searchInput').addEventListener('input', filtrarNotas);
-    document.getElementById('dataInicio').addEventListener('change', filtrarNotas);
-    document.getElementById('dataFim').addEventListener('change', filtrarNotas);
-    document.getElementById('orderBy').addEventListener('change', filtrarNotas);
+    try {
+        // Carregar dados necessários em paralelo
+        const [notasResponse, clientesResponse, produtosResponse] = await Promise.all([
+            fetch(`${API_URL}/notas`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            }),
+            fetch(`${API_URL}/clientes`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            }),
+            fetch(`${API_URL}/produtos`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            })
+        ]);
 
-    // Listener para cálculo automático de totais
-    document.getElementById('impostos').addEventListener('input', calcularTotais);
+        // Verificar respostas
+        if (!notasResponse.ok || !clientesResponse.ok || !produtosResponse.ok) {
+            throw new Error('Erro ao carregar dados');
+        }
+
+        // Armazenar dados
+        notasData = await notasResponse.json();
+        clientesData = await clientesResponse.json();
+        produtosData = await produtosResponse.json();
+
+        // Renderizar dados
+        renderizarNotas(notasData);
+        preencherSelectClientes();
+        preencherSelectProdutos();
+
+        // Adicionar listeners para filtros
+        document.getElementById('searchInput').addEventListener('input', filtrarNotas);
+        document.getElementById('dataInicio').addEventListener('change', filtrarNotas);
+        document.getElementById('dataFim').addEventListener('change', filtrarNotas);
+        document.getElementById('orderBy').addEventListener('change', filtrarNotas);
+
+    } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        mostrarAlerta('Erro ao carregar dados do sistema', 'danger');
+        if (error.status === 401) {
+            window.location.href = '/html/login.html';
+        }
+    }
 });
 
 // Funções de API
@@ -129,10 +156,14 @@ function renderizarNotas(notas) {
 
 function preencherSelectClientes() {
     const select = document.getElementById('clienteSelect');
+    if (!select) return;
+
     select.innerHTML = `
         <option value="">Selecione o cliente...</option>
         ${clientesData.map(cliente => `
-            <option value="${cliente.id_cliente}">${cliente.nome} - ${formatarCpfCnpj(cliente.cpf_cnpj)}</option>
+            <option value="${cliente.id_cliente}">
+                ${cliente.nome} - ${formatarCpfCnpj(cliente.cpf_cnpj)}
+            </option>
         `).join('')}
     `;
 }
@@ -144,7 +175,8 @@ function preencherSelectProdutos(selectElement = null) {
             <option value="${produto.id_produto}" 
                     data-preco="${produto.preco_venda}"
                     data-estoque="${produto.estoque}">
-                ${produto.nome} - R$ ${produto.preco_venda.toFixed(2)}
+                ${produto.nome} - R$ ${produto.preco_venda.toFixed(2)} 
+                (Estoque: ${produto.estoque})
             </option>
         `).join('')}
     `;
@@ -164,17 +196,20 @@ function adicionarProduto() {
     novoProduto.className = 'produto-item mb-2';
     novoProduto.innerHTML = `
         <div class="row g-2">
-            <div class="col-md-5">
+            <div class="col-md-3">
                 <select class="form-select produto-select" required onchange="atualizarPrecoProduto(this)">
                     <option value="">Selecione o produto...</option>
                 </select>
             </div>
             <div class="col-md-2">
                 <input type="number" class="form-control quantidade-input" 
-                       placeholder="Qtd" min="1" required onchange="calcularTotais()">
+                       placeholder="Qtd" min="1" required onchange="calcularTotais()" onkeyup="calcularTotais()">
+            </div>
+            <div class="col-md-2">
+                <input type="text" class="form-control preco-input" placeholder="Preço" readonly>
             </div>
             <div class="col-md-3">
-                <input type="text" class="form-control" placeholder="Preço" readonly>
+                <input type="text" class="form-control subtotal-input" placeholder="Subtotal" readonly>
             </div>
             <div class="col-md-2">
                 <button type="button" class="btn btn-danger btn-sm w-100"
@@ -201,35 +236,44 @@ function atualizarPrecoProduto(select) {
     
     const option = select.selectedOptions[0];
     if (option && option.dataset.preco) {
-        precoInput.value = `R$ ${parseFloat(option.dataset.preco).toFixed(2)}`;
+        const preco = parseFloat(option.dataset.preco);
+        precoInput.value = `R$ ${preco.toFixed(2)}`;
         quantidadeInput.max = option.dataset.estoque;
+        
+        if (quantidadeInput.value) {
+            calcularTotais();
+        }
     } else {
         precoInput.value = '';
         quantidadeInput.value = '';
         quantidadeInput.max = '';
     }
-    
-    calcularTotais();
 }
 
 function calcularTotais() {
-    let subtotal = 0;
+    let subtotalGeral = 0;
     
     document.querySelectorAll('.produto-item').forEach(item => {
         const select = item.querySelector('.produto-select');
-        const quantidade = item.querySelector('.quantidade-input').value;
-        const option = select.selectedOptions[0];
+        const quantidade = parseInt(item.querySelector('.quantidade-input').value) || 0;
+        const subtotalInput = item.querySelector('.subtotal-input');
         
-        if (option && option.dataset.preco && quantidade) {
-            subtotal += parseFloat(option.dataset.preco) * parseInt(quantidade);
+        if (select.value && quantidade > 0) {
+            const preco = parseFloat(select.selectedOptions[0].dataset.preco);
+            const subtotalItem = quantidade * preco;
+            subtotalGeral += subtotalItem;
+            
+            subtotalInput.value = `R$ ${subtotalItem.toFixed(2)}`;
+        } else {
+            subtotalInput.value = 'R$ 0,00';
         }
     });
 
     const impostos = parseFloat(document.getElementById('impostos').value) || 0;
-    const valorImpostos = (subtotal * impostos) / 100;
-    const total = subtotal + valorImpostos;
+    const valorImpostos = (subtotalGeral * impostos) / 100;
+    const total = subtotalGeral + valorImpostos;
 
-    document.getElementById('subtotal').value = `R$ ${subtotal.toFixed(2)}`;
+    document.getElementById('subtotal').value = `R$ ${subtotalGeral.toFixed(2)}`;
     document.getElementById('total').value = `R$ ${total.toFixed(2)}`;
 }
 
@@ -403,4 +447,42 @@ function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     window.location.href = '/html/login.html';
+}
+
+function filtrarNotas() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const dataInicio = document.getElementById('dataInicio').value;
+    const dataFim = document.getElementById('dataFim').value;
+    const orderBy = document.getElementById('orderBy').value;
+
+    let notasFiltradas = notasData.filter(nota => {
+        // Filtro por texto (número da nota ou nome do cliente)
+        const matchSearch = 
+            nota.id_nota.toString().includes(searchTerm) ||
+            buscarNomeCliente(nota.id_cliente).toLowerCase().includes(searchTerm);
+
+        // Filtro por data
+        const dataNota = new Date(nota.data_emissao);
+        const matchDataInicio = !dataInicio || dataNota >= new Date(dataInicio);
+        const matchDataFim = !dataFim || dataNota <= new Date(dataFim + ' 23:59:59');
+
+        return matchSearch && matchDataInicio && matchDataFim;
+    });
+
+    // Ordenação
+    notasFiltradas.sort((a, b) => {
+        switch (orderBy) {
+            case 'valor':
+                return b.total - a.total;
+            case 'cliente':
+                const clienteA = buscarNomeCliente(a.id_cliente);
+                const clienteB = buscarNomeCliente(b.id_cliente);
+                return clienteA.localeCompare(clienteB);
+            case 'data':
+            default:
+                return new Date(b.data_emissao) - new Date(a.data_emissao);
+        }
+    });
+
+    renderizarNotas(notasFiltradas);
 } 

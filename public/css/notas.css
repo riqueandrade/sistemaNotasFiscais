@@ -7,6 +7,7 @@
     --background-color: #f8fafc;
     --success-color: #059669;
     --danger-color: #dc2626;
+    --border-input: #999999;
 }
 
 body {
@@ -34,7 +35,7 @@ body {
 
 /* Inputs e Selects */
 .form-control, .form-select {
-    border-color: var(--border-color);
+    border: 1px solid var(--border-input);
     padding: 0.625rem 0.75rem;
 }
 

@@ -21,15 +21,16 @@ app.use((req, res, next) => {
     next();
 });
 
-// Rota pública para login
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'html', 'login.html'));
-});
-
 // Rotas da API
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/produtos', require('./routes/produtos'));
 app.use('/api/clientes', require('./routes/clientes'));
+app.use('/api/notas', require('./routes/notasFiscais'));
+
+// Rotas das páginas
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'html', 'login.html'));
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
