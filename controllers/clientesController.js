@@ -32,8 +32,20 @@ const clientesController = {
 
     // Cadastrar novo cliente
     cadastrarCliente: (req, res) => {
-        const { nome, cpf_cnpj, telefone, email, endereco } = req.body;
-        
+        const { 
+            nome, 
+            cpf_cnpj, 
+            telefone, 
+            email, 
+            cep,
+            rua,
+            numero,
+            complemento,
+            bairro,
+            cidade,
+            estado
+        } = req.body;
+
         // Verificar se CPF/CNPJ já existe
         db.get('SELECT id_cliente FROM clientes WHERE cpf_cnpj = ?', [cpf_cnpj], (err, cliente) => {
             if (err) {
@@ -46,11 +58,34 @@ const clientesController = {
             }
 
             const sql = `
-                INSERT INTO clientes (nome, cpf_cnpj, telefone, email, endereco)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO clientes (
+                    nome, 
+                    cpf_cnpj, 
+                    telefone, 
+                    email, 
+                    cep,
+                    rua,
+                    numero,
+                    complemento,
+                    bairro,
+                    cidade,
+                    estado
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             
-            db.run(sql, [nome, cpf_cnpj, telefone, email, endereco], function(err) {
+            db.run(sql, [
+                nome, 
+                cpf_cnpj, 
+                telefone, 
+                email, 
+                cep,
+                rua,
+                numero,
+                complemento,
+                bairro,
+                cidade,
+                estado
+            ], function(err) {
                 if (err) {
                     console.error('Erro ao cadastrar cliente:', err);
                     return res.status(500).json({ erro: 'Erro ao cadastrar cliente' });
@@ -66,7 +101,19 @@ const clientesController = {
     // Atualizar cliente
     atualizarCliente: (req, res) => {
         const { id } = req.params;
-        const { nome, cpf_cnpj, telefone, email, endereco } = req.body;
+        const { 
+            nome, 
+            cpf_cnpj, 
+            telefone, 
+            email, 
+            cep,
+            rua,
+            numero,
+            complemento,
+            bairro,
+            cidade,
+            estado
+        } = req.body;
         
         // Verificar se CPF/CNPJ já existe em outro cliente
         db.get('SELECT id_cliente FROM clientes WHERE cpf_cnpj = ? AND id_cliente != ?', 
@@ -82,11 +129,34 @@ const clientesController = {
 
             const sql = `
                 UPDATE clientes 
-                SET nome = ?, cpf_cnpj = ?, telefone = ?, email = ?, endereco = ?
+                SET nome = ?, 
+                    cpf_cnpj = ?, 
+                    telefone = ?, 
+                    email = ?, 
+                    cep = ?,
+                    rua = ?,
+                    numero = ?,
+                    complemento = ?,
+                    bairro = ?,
+                    cidade = ?,
+                    estado = ?
                 WHERE id_cliente = ?
             `;
             
-            db.run(sql, [nome, cpf_cnpj, telefone, email, endereco, id], function(err) {
+            db.run(sql, [
+                nome, 
+                cpf_cnpj, 
+                telefone, 
+                email, 
+                cep,
+                rua,
+                numero,
+                complemento,
+                bairro,
+                cidade,
+                estado,
+                id
+            ], function(err) {
                 if (err) {
                     console.error('Erro ao atualizar cliente:', err);
                     return res.status(500).json({ erro: 'Erro ao atualizar cliente' });

@@ -13,6 +13,13 @@ const db = new sqlite3.Database(dbPath, async (err) => {
     
     // Criar tabelas
     db.serialize(() => {
+        // Remover tabelas existentes se necessário
+        db.run(`DROP TABLE IF EXISTS itens_nota_fiscal`);
+        db.run(`DROP TABLE IF EXISTS notas_fiscais`);
+        db.run(`DROP TABLE IF EXISTS clientes`);
+        db.run(`DROP TABLE IF EXISTS produtos`);
+        db.run(`DROP TABLE IF EXISTS usuarios`);
+
         // Tabela de usuários
         db.run(`CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,7 +54,8 @@ const db = new sqlite3.Database(dbPath, async (err) => {
             categoria TEXT NOT NULL,
             preco_venda DECIMAL(10,2) NOT NULL,
             estoque INTEGER NOT NULL,
-            descricao TEXT
+            descricao TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
         // Tabela de notas fiscais
