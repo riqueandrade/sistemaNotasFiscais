@@ -1,0 +1,181 @@
+:root {
+    --primary-color: #2563eb;
+    --secondary-color: #1e40af;
+    --text-color: #1f2937;
+    --light-text: #6b7280;
+    --border-color: #e5e7eb;
+    --background-color: #f8fafc;
+    --error-color: #ef4444;
+    --border-input: #999999;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--background-color);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 2rem 1rem;
+}
+
+.container {
+    max-width: 420px;
+}
+
+.login-container {
+    width: 100%;
+}
+
+.login-card {
+    background-color: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    padding: 2rem;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.logo-icon {
+    width: 80px;
+    height: 80px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    color: white;
+    font-size: 2.5rem;
+    box-shadow: 0 4px 6px -1px rgba(37,99,235,0.2);
+    transition: transform 0.3s ease;
+}
+
+.logo-icon:hover {
+    transform: scale(1.05);
+}
+
+.login-header h2 {
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.login-header p {
+    color: var(--light-text);
+    margin-bottom: 0;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.input-group {
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.input-group:focus-within {
+    border-color: var(--primary-color);
+}
+
+.input-group-text {
+    background-color: white;
+    border: none;
+    color: var(--light-text);
+}
+
+.form-control {
+    border: none;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+}
+
+.form-control:focus {
+    box-shadow: none;
+}
+
+.form-check-input {
+    border: 1px solid var(--border-input);
+}
+
+.toggle-password {
+    border: none;
+    background: none;
+    color: var(--light-text);
+    padding: 0 1rem;
+}
+
+.toggle-password:hover {
+    color: var(--text-color);
+}
+
+.forgot-password {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.forgot-password:hover {
+    text-decoration: underline;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border: none;
+    padding: 0.75rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-1px);
+}
+
+.btn-loader {
+    margin-left: 0.5rem;
+}
+
+#error-message {
+    background-color: #fef2f2;
+    border-color: #fee2e2;
+    color: var(--error-color);
+    font-size: 0.9rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+}
+
+.login-footer {
+    margin-top: 2rem;
+    color: var(--light-text);
+    font-size: 0.85rem;
+}
+
+/* Animações */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+/* Responsividade */
+@media (max-width: 480px) {
+    .login-card {
+        padding: 1.5rem;
+    }
+
+    .login-header h2 {
+        font-size: 1.25rem;
+    }
+} 
