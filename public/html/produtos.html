@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Produtos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="my-4">Produtos</h1>
+        
+        <!-- Botão para abrir modal de novo produto -->
+        <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#modalProduto">
+            Novo Produto
+        </button>
+
+        <!-- Tabela de produtos -->
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Categoria</th>
+                        <th>Preço</th>
+                        <th>Estoque</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-produtos">
+                    <!-- Produtos serão inseridos aqui via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Modal de Produto -->
+        <div class="modal fade" id="modalProduto" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Produto</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-produto">
+                            <input type="hidden" id="id_produto">
+                            <div class="mb-3">
+                                <label class="form-label">Nome</label>
+                                <input type="text" class="form-control" id="nome" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Categoria</label>
+                                <select class="form-control" id="categoria" required>
+                                    <option value="Celular">Celular</option>
+                                    <option value="Acessório">Acessório</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Preço</label>
+                                <input type="number" step="0.01" class="form-control" id="preco_venda" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Estoque</label>
+                                <input type="number" class="form-control" id="estoque" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Descrição</label>
+                                <textarea class="form-control" id="descricao"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="salvarProduto()">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/produtos.js"></script>
+    <script>
+        // Carregar produtos ao iniciar a página
+        document.addEventListener('DOMContentLoaded', carregarProdutos);
+
+        async function carregarProdutos() {
+            try {
+                const produtos = await ProdutosService.listarProdutos();
+                const tbody = document.getElementById('tabela-produtos');
+                tbody.innerHTML = produtos.map(produto => `
+                    <tr>
+                        <td>${produto.id_produto}</td>
+                        <td>${produto.nome}</td>
+                        <td>${produto.categoria}</td>
+                        <td>R$ ${produto.preco_venda.toFixed(2)}</td>
+                        <td>${produto.estoque}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="editarProduto(${produto.id_produto})">Editar</button>
+                            <button class="btn btn-sm btn-danger" onclick="excluirProduto(${produto.id_produto})">Excluir</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                alert('Erro ao carregar produtos');
+            }
+        }
+
+        async function salvarProduto() {
+            const produto = {
+                nome: document.getElementById('nome').value,
+                categoria: document.getElementById('categoria').value,
+                preco_venda: parseFloat(document.getElementById('preco_venda').value),
+                estoque: parseInt(document.getElementById('estoque').value),
+                descricao: document.getElementById('descricao').value
+            };
+
+            const id = document.getElementById('id_produto').value;
+
+            try {
+                if (id) {
+                    await ProdutosService.atualizarProduto(id, produto);
+                } else {
+                    await ProdutosService.cadastrarProduto(produto);
+                }
+                
+                bootstrap.Modal.getInstance(document.getElementById('modalProduto')).hide();
+                carregarProdutos();
+            } catch (error) {
+                alert('Erro ao salvar produto');
+            }
+        }
+
+        async function excluirProduto(id) {
+            if (!confirm('Deseja realmente excluir este produto?')) return;
+            
+            try {
+                await ProdutosService.excluirProduto(id);
+                carregarProdutos();
+            } catch (error) {
+                alert('Erro ao excluir produto');
+            }
+        }
+
+        function editarProduto(id) {
+            const produto = produtos.find(p => p.id_produto === id);
+            if (produto) {
+                document.getElementById('id_produto').value = produto.id_produto;
+                document.getElementById('nome').value = produto.nome;
+                document.getElementById('categoria').value = produto.categoria;
+                document.getElementById('preco_venda').value = produto.preco_venda;
+                document.getElementById('estoque').value = produto.estoque;
+                document.getElementById('descricao').value = produto.descricao;
+                
+                const modal = new bootstrap.Modal(document.getElementById('modalProduto'));
+                modal.show();
+            }
+        }
+    </script>
+</body>
+</html> 

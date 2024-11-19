@@ -9,13 +9,8 @@ const produtosController = {
                 console.error('Erro ao buscar produtos:', err);
                 return res.status(500).json({ erro: 'Erro interno do servidor' });
             }
-            res.render('produtos/lista', { produtos });
+            res.json(produtos);
         });
-    },
-
-    // Renderizar página de novo produto
-    paginaNovoProduto: (req, res) => {
-        res.render('produtos/novo');
     },
 
     // Cadastrar novo produto
@@ -31,12 +26,15 @@ const produtosController = {
                 console.error('Erro ao cadastrar produto:', err);
                 return res.status(500).json({ erro: 'Erro ao cadastrar produto' });
             }
-            res.redirect('/produtos');
+            res.status(201).json({ 
+                id: this.lastID,
+                mensagem: 'Produto cadastrado com sucesso'
+            });
         });
     },
 
-    // Renderizar página de edição
-    paginaEditarProduto: (req, res) => {
+    // Buscar produto por ID
+    buscarProduto: (req, res) => {
         const { id } = req.params;
         const sql = 'SELECT * FROM produtos WHERE id_produto = ?';
         
@@ -48,7 +46,7 @@ const produtosController = {
             if (!produto) {
                 return res.status(404).json({ erro: 'Produto não encontrado' });
             }
-            res.render('produtos/editar', { produto });
+            res.json(produto);
         });
     },
 
@@ -68,7 +66,10 @@ const produtosController = {
                 console.error('Erro ao atualizar produto:', err);
                 return res.status(500).json({ erro: 'Erro ao atualizar produto' });
             }
-            res.redirect('/produtos');
+            if (this.changes === 0) {
+                return res.status(404).json({ erro: 'Produto não encontrado' });
+            }
+            res.json({ mensagem: 'Produto atualizado com sucesso' });
         });
     },
 
@@ -76,7 +77,6 @@ const produtosController = {
     excluirProduto: (req, res) => {
         const { id } = req.params;
         
-        // Verificar se o produto está em alguma nota fiscal
         db.get('SELECT COUNT(*) as count FROM itens_nota_fiscal WHERE id_produto = ?', [id], (err, result) => {
             if (err) {
                 console.error('Erro ao verificar produto:', err);
@@ -89,11 +89,13 @@ const produtosController = {
                 });
             }
 
-            // Se não estiver vinculado, pode excluir
             db.run('DELETE FROM produtos WHERE id_produto = ?', [id], function(err) {
                 if (err) {
                     console.error('Erro ao excluir produto:', err);
                     return res.status(500).json({ erro: 'Erro ao excluir produto' });
+                }
+                if (this.changes === 0) {
+                    return res.status(404).json({ erro: 'Produto não encontrado' });
                 }
                 res.json({ mensagem: 'Produto excluído com sucesso' });
             });
