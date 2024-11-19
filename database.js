@@ -23,7 +23,7 @@ const db = new sqlite3.Database(dbPath, async (err) => {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // Tabela de clientes com campos atualizados
+        // Tabela de clientes
         db.run(`CREATE TABLE IF NOT EXISTS clientes (
             id_cliente INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
@@ -59,6 +59,9 @@ const db = new sqlite3.Database(dbPath, async (err) => {
             subtotal DECIMAL(10,2) NOT NULL,
             impostos DECIMAL(10,2) NOT NULL,
             total DECIMAL(10,2) NOT NULL,
+            status TEXT DEFAULT 'emitida',
+            observacao TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente)
         )`);
 
@@ -70,7 +73,8 @@ const db = new sqlite3.Database(dbPath, async (err) => {
             quantidade INTEGER NOT NULL,
             preco_unitario DECIMAL(10,2) NOT NULL,
             subtotal_item DECIMAL(10,2) NOT NULL,
-            FOREIGN KEY (id_nota) REFERENCES notas_fiscais(id_nota),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (id_nota) REFERENCES notas_fiscais(id_nota) ON DELETE CASCADE,
             FOREIGN KEY (id_produto) REFERENCES produtos(id_produto)
         )`);
 

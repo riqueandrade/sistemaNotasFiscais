@@ -31,33 +31,62 @@ const notasFiscaisController = {
         });
     },
 
-    // Buscar nota específica
-    buscarNota: (req, res) => {
+    // Buscar nota específica com todos os detalhes
+    buscarNota: async (req, res) => {
         const { id } = req.params;
-        const sql = `
-            SELECT 
-                nf.*, 
-                c.nome as cliente_nome,
-                c.cpf_cnpj as cliente_cpf_cnpj,
-                c.endereco as cliente_endereco
-            FROM notas_fiscais nf
-            JOIN clientes c ON c.id_cliente = nf.id_cliente
-            WHERE nf.id_nota = ?
-        `;
 
-        db.get(sql, [id], async (err, nota) => {
-            if (err) {
-                console.error('Erro ao buscar nota:', err);
-                return res.status(500).json({ erro: 'Erro interno do servidor' });
-            }
+        try {
+            // Buscar dados da nota
+            const nota = await new Promise((resolve, reject) => {
+                db.get(`
+                    SELECT 
+                        nf.*,
+                        c.nome as cliente_nome,
+                        c.cpf_cnpj as cliente_cpf_cnpj,
+                        c.rua as cliente_rua,
+                        c.numero as cliente_numero,
+                        c.complemento as cliente_complemento,
+                        c.bairro as cliente_bairro,
+                        c.cidade as cliente_cidade,
+                        c.estado as cliente_estado,
+                        c.cep as cliente_cep
+                    FROM notas_fiscais nf
+                    JOIN clientes c ON c.id_cliente = nf.id_cliente
+                    WHERE nf.id_nota = ?
+                `, [id], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
 
             if (!nota) {
                 return res.status(404).json({ erro: 'Nota fiscal não encontrada' });
             }
 
-            nota.itens = await buscarItensNota(nota.id_nota);
+            // Buscar itens da nota
+            const itens = await new Promise((resolve, reject) => {
+                db.all(`
+                    SELECT 
+                        i.*,
+                        p.nome as produto_nome,
+                        p.descricao as produto_descricao
+                    FROM itens_nota_fiscal i
+                    JOIN produtos p ON p.id_produto = i.id_produto
+                    WHERE i.id_nota = ?
+                `, [id], (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows);
+                });
+            });
+
+            // Adicionar itens à nota
+            nota.itens = itens;
+
             res.json(nota);
-        });
+        } catch (error) {
+            console.error('Erro ao buscar nota:', error);
+            res.status(500).json({ erro: 'Erro ao buscar nota fiscal' });
+        }
     },
 
     // Emitir nova nota
@@ -176,66 +205,198 @@ const notasFiscaisController = {
         const { id } = req.params;
 
         try {
-            const nota = await buscarNotaCompleta(id);
+            // Buscar dados completos da nota
+            const nota = await new Promise((resolve, reject) => {
+                db.get(`
+                    SELECT 
+                        nf.*,
+                        c.nome as cliente_nome,
+                        c.cpf_cnpj as cliente_cpf_cnpj,
+                        c.rua,
+                        c.numero,
+                        c.complemento,
+                        c.bairro,
+                        c.cidade,
+                        c.estado,
+                        c.cep
+                    FROM notas_fiscais nf
+                    JOIN clientes c ON c.id_cliente = nf.id_cliente
+                    WHERE nf.id_nota = ?
+                `, [id], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+
             if (!nota) {
                 return res.status(404).json({ erro: 'Nota fiscal não encontrada' });
             }
 
-            const doc = new PDFDocument();
+            // Buscar itens da nota
+            nota.itens = await new Promise((resolve, reject) => {
+                db.all(`
+                    SELECT 
+                        i.*,
+                        p.nome as produto_nome,
+                        p.descricao as produto_descricao
+                    FROM itens_nota_fiscal i
+                    JOIN produtos p ON p.id_produto = i.id_produto
+                    WHERE i.id_nota = ?
+                `, [id], (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows);
+                });
+            });
+
+            // Formatar endereço do cliente
+            const enderecoCliente = [
+                nota.rua,
+                nota.numero,
+                nota.complemento,
+                nota.bairro,
+                `${nota.cidade}/${nota.estado}`,
+                nota.cep
+            ].filter(Boolean).join(', ');
+
+            // Criar documento PDF
+            const doc = new PDFDocument({
+                size: 'A4',
+                margins: {
+                    top: 40,
+                    bottom: 40,
+                    left: 40,
+                    right: 40
+                }
+            });
+
+            // Configurar resposta
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=nota_${id}.pdf`);
+            res.setHeader('Content-Disposition', `attachment; filename=nota_fiscal_${id}.pdf`);
             doc.pipe(res);
 
+            // Funções auxiliares
+            const drawLine = (y) => {
+                doc.moveTo(40, y).lineTo(555, y).stroke();
+            };
+
+            const drawRect = (x, y, w, h) => {
+                doc.rect(x, y, w, h).stroke();
+            };
+
             // Cabeçalho
-            doc.fontSize(20).text('NOTA FISCAL', { align: 'center' });
-            doc.moveDown();
+            drawRect(40, 40, 515, 80);
+            doc.fontSize(20)
+               .font('Helvetica-Bold')
+               .text('NOTA FISCAL', 40, 55, { align: 'center' });
 
-            // Dados da empresa
-            doc.fontSize(12).text('EMPRESA EXEMPLO LTDA');
+            // Número e Data
             doc.fontSize(10)
-               .text('CNPJ: 00.000.000/0000-00')
-               .text('Endereço: Rua Exemplo, 123 - Centro')
-               .text('Telefone: (11) 1234-5678');
-            doc.moveDown();
+               .font('Helvetica')
+               .text(`Nº: ${nota.id_nota.toString().padStart(6, '0')}`, 400, 55)
+               .text(`Emissão: ${new Date(nota.data_emissao).toLocaleDateString('pt-BR')}`, 400, 70)
+               .text(`Hora: ${new Date(nota.data_emissao).toLocaleTimeString('pt-BR')}`, 400, 85);
 
-            // Dados do cliente
-            doc.fontSize(12).text('DADOS DO CLIENTE');
+            // Dados do Emitente
+            drawRect(40, 130, 515, 100);
+            doc.fontSize(12)
+               .font('Helvetica-Bold')
+               .fillColor('#444')
+               .text('DADOS DO EMITENTE', 50, 140);
+
             doc.fontSize(10)
-               .text(`Nome: ${nota.cliente_nome}`)
-               .text(`CPF/CNPJ: ${nota.cliente_cpf_cnpj}`)
-               .text(`Endereço: ${nota.cliente_endereco}`);
-            doc.moveDown();
+               .font('Helvetica')
+               .text('EMPRESA EXEMPLO LTDA', 50, 160)
+               .text('CNPJ: 00.000.000/0000-00', 50, 175)
+               .text('Endereço: Rua Exemplo, 123 - Centro', 50, 190)
+               .text('CEP: 00000-000 - Cidade/UF', 50, 205)
+               .text('Telefone: (00) 0000-0000', 50, 220);
 
-            // Itens
-            doc.fontSize(12).text('ITENS');
-            doc.moveDown();
+            // Dados do Cliente
+            drawRect(40, 240, 515, 100);
+            doc.fontSize(12)
+               .font('Helvetica-Bold')
+               .text('DADOS DO CLIENTE', 50, 250);
+
+            doc.fontSize(10)
+               .font('Helvetica')
+               .text(`Nome: ${nota.cliente_nome}`, 50, 270)
+               .text(`CPF/CNPJ: ${nota.cliente_cpf_cnpj}`, 50, 285)
+               .text(`Endereço: ${enderecoCliente}`, 50, 300, {
+                   width: 495,
+                   align: 'left'
+               });
+
+            // Tabela de Itens
+            drawRect(40, 350, 515, 30);
+            doc.fillColor('#f6f6f6')
+               .rect(40, 350, 515, 30)
+               .fill()
+               .fillColor('#000');
 
             // Cabeçalho da tabela
-            const tableTop = doc.y;
             doc.fontSize(10)
-               .text('Produto', 50, tableTop)
-               .text('Qtd', 300, tableTop)
-               .text('Valor Unit.', 350, tableTop)
-               .text('Subtotal', 450, tableTop);
+               .font('Helvetica-Bold')
+               .text('Item', 50, 360)
+               .text('Descrição', 100, 360)
+               .text('Qtd', 360, 360)
+               .text('Vl. Unit.', 420, 360)
+               .text('Subtotal', 480, 360);
 
-            let y = tableTop + 20;
-            for (let item of nota.itens) {
-                doc.text(item.produto_nome, 50, y)
-                   .text(item.quantidade.toString(), 300, y)
-                   .text(`R$ ${item.preco_unitario.toFixed(2)}`, 350, y)
-                   .text(`R$ ${item.subtotal_item.toFixed(2)}`, 450, y);
-                y += 20;
-            }
+            // Itens
+            let y = 380;
+            nota.itens.forEach((item, index) => {
+                drawRect(40, y, 515, 25);
+                
+                doc.fontSize(9)
+                   .font('Helvetica')
+                   .text((index + 1).toString(), 50, y + 7)
+                   .text(item.produto_nome, 100, y + 7)
+                   .text(item.quantidade.toString(), 360, y + 7)
+                   .text(`R$ ${item.preco_unitario.toFixed(2)}`, 420, y + 7)
+                   .text(`R$ ${item.subtotal_item.toFixed(2)}`, 480, y + 7);
 
-            doc.moveDown();
-            doc.moveDown();
+                y += 25;
+            });
 
             // Totais
-            doc.fontSize(10)
-               .text(`Subtotal: R$ ${nota.subtotal.toFixed(2)}`, { align: 'right' })
-               .text(`Impostos: R$ ${nota.impostos.toFixed(2)}`, { align: 'right' })
-               .text(`Total: R$ ${nota.total.toFixed(2)}`, { align: 'right', fontSize: 12 });
+            y += 20;
+            drawRect(315, y, 240, 90);
+            doc.fillColor('#f6f6f6')
+               .rect(315, y, 240, 30)
+               .fill()
+               .fillColor('#000');
 
+            // Valores
+            doc.fontSize(10)
+               .font('Helvetica-Bold')
+               .text('Subtotal:', 325, y + 10)
+               .font('Helvetica')
+               .text(`R$ ${nota.subtotal.toFixed(2)}`, 480, y + 10);
+
+            doc.font('Helvetica-Bold')
+               .text('Impostos:', 325, y + 40)
+               .font('Helvetica')
+               .text(`R$ ${nota.impostos.toFixed(2)}`, 480, y + 40);
+
+            doc.font('Helvetica-Bold')
+               .text('Total:', 325, y + 70)
+               .font('Helvetica')
+               .text(`R$ ${nota.total.toFixed(2)}`, 480, y + 70, {
+                   underline: true
+               });
+
+            // Rodapé
+            doc.fontSize(8)
+               .font('Helvetica')
+               .fillColor('#666')
+               .text(
+                   'Documento sem valor fiscal - Apenas para controle interno',
+                   40,
+                   doc.page.height - 50,
+                   { align: 'center' }
+               );
+
+            // Finalizar PDF
             doc.end();
 
         } catch (error) {
@@ -364,7 +525,13 @@ async function buscarNotaCompleta(id_nota) {
                 nf.*, 
                 c.nome as cliente_nome,
                 c.cpf_cnpj as cliente_cpf_cnpj,
-                c.endereco as cliente_endereco
+                c.rua as cliente_rua,
+                c.numero as cliente_numero,
+                c.complemento as cliente_complemento,
+                c.bairro as cliente_bairro,
+                c.cidade as cliente_cidade,
+                c.estado as cliente_estado,
+                c.cep as cliente_cep
             FROM notas_fiscais nf
             JOIN clientes c ON c.id_cliente = nf.id_cliente
             WHERE nf.id_nota = ?

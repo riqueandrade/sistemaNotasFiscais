@@ -7,43 +7,24 @@ let notaModal;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
-    // Inicializar modal do Bootstrap
-    notaModal = new bootstrap.Modal(document.getElementById('notaModal'));
-    
-    // Carregar dados do usuário
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
-    if (usuario) {
-        document.getElementById('userName').textContent = usuario.nome;
-    }
-    
     try {
-        // Carregar dados necessários em paralelo
-        const [notasResponse, clientesResponse, produtosResponse] = await Promise.all([
-            fetch(`${API_URL}/notas`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            }),
-            fetch(`${API_URL}/clientes`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            }),
-            fetch(`${API_URL}/produtos`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            })
-        ]);
-
-        // Verificar respostas
-        if (!notasResponse.ok || !clientesResponse.ok || !produtosResponse.ok) {
-            throw new Error('Erro ao carregar dados');
+        // Inicializar modal do Bootstrap
+        notaModal = new bootstrap.Modal(document.getElementById('notaModal'));
+        
+        // Carregar dados do usuário
+        const usuario = JSON.parse(localStorage.getItem('usuario'));
+        if (usuario) {
+            document.getElementById('userName').textContent = usuario.nome;
         }
 
-        // Armazenar dados
-        notasData = await notasResponse.json();
-        clientesData = await clientesResponse.json();
-        produtosData = await produtosResponse.json();
+        // Primeiro, carregar clientes e produtos
+        await Promise.all([
+            carregarClientes(),
+            carregarProdutos()
+        ]);
 
-        // Renderizar dados
-        renderizarNotas(notasData);
-        preencherSelectClientes();
-        preencherSelectProdutos();
+        // Depois, carregar notas
+        await carregarNotas();
 
         // Adicionar listeners para filtros
         document.getElementById('searchInput').addEventListener('input', filtrarNotas);
@@ -52,13 +33,112 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('orderBy').addEventListener('change', filtrarNotas);
 
     } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        mostrarAlerta('Erro ao carregar dados do sistema', 'danger');
-        if (error.status === 401) {
-            window.location.href = '/html/login.html';
-        }
+        console.error('Erro ao inicializar:', error);
+        mostrarAlerta('Erro ao carregar dados', 'danger');
     }
 });
+
+async function carregarClientes() {
+    const response = await fetch(`${API_URL}/clientes`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error('Erro ao carregar clientes');
+    }
+
+    clientesData = await response.json();
+    preencherSelectClientes();
+}
+
+async function carregarProdutos() {
+    const response = await fetch(`${API_URL}/produtos`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error('Erro ao carregar produtos');
+    }
+
+    produtosData = await response.json();
+    preencherSelectProdutos();
+}
+
+async function carregarNotas() {
+    const response = await fetch(`${API_URL}/notas`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error('Erro ao carregar notas');
+    }
+
+    notasData = await response.json();
+    renderizarNotas(notasData);
+}
+
+function preencherSelectClientes() {
+    const select = document.getElementById('clienteSelect');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Selecione o cliente...</option>';
+    
+    clientesData.forEach(cliente => {
+        const option = new Option(
+            `${cliente.nome} - ${formatarCpfCnpj(cliente.cpf_cnpj)}`,
+            cliente.id_cliente
+        );
+        select.appendChild(option);
+    });
+
+    // Inicializar Select2
+    $(select).select2({
+        theme: 'bootstrap-5',
+        width: '100%',
+        placeholder: 'Buscar cliente...',
+        allowClear: true
+    });
+}
+
+function preencherSelectProdutos(selectElement = null) {
+    const preencherSelect = (select) => {
+        select.innerHTML = '<option value="">Selecione o produto...</option>';
+        
+        produtosData.forEach(produto => {
+            const option = new Option(
+                `${produto.nome} - R$ ${produto.preco_venda.toFixed(2)} (Estoque: ${produto.estoque})`,
+                produto.id_produto
+            );
+            option.dataset.preco = produto.preco_venda;
+            option.dataset.estoque = produto.estoque;
+            select.appendChild(option);
+        });
+
+        // Inicializar Select2
+        $(select).select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Buscar produto...',
+            allowClear: true
+        }).on('select2:select', function(e) {
+            atualizarPrecoProduto(this);
+        });
+    };
+
+    if (selectElement) {
+        preencherSelect(selectElement);
+    } else {
+        document.querySelectorAll('.produto-select').forEach(select => {
+            preencherSelect(select);
+        });
+    }
+}
 
 // Funções de API
 async function carregarNotas() {
@@ -158,36 +238,106 @@ function preencherSelectClientes() {
     const select = document.getElementById('clienteSelect');
     if (!select) return;
 
-    select.innerHTML = `
-        <option value="">Selecione o cliente...</option>
-        ${clientesData.map(cliente => `
-            <option value="${cliente.id_cliente}">
-                ${cliente.nome} - ${formatarCpfCnpj(cliente.cpf_cnpj)}
-            </option>
-        `).join('')}
-    `;
+    // Limpar select
+    select.innerHTML = '<option value="">Selecione o cliente...</option>';
+    
+    // Adicionar opções
+    clientesData.forEach(cliente => {
+        const option = new Option(
+            `${cliente.nome} - ${formatarCpfCnpj(cliente.cpf_cnpj)}`,
+            cliente.id_cliente
+        );
+        select.appendChild(option);
+    });
+
+    // Inicializar Select2
+    $(select).select2({
+        theme: 'bootstrap-5',
+        width: '100%',
+        language: 'pt-BR',
+        placeholder: 'Buscar cliente...',
+        allowClear: true,
+        minimumInputLength: 2,
+        templateResult: formatarOpcaoCliente,
+        templateSelection: formatarOpcaoCliente
+    });
+}
+
+function formatarOpcaoCliente(cliente) {
+    if (!cliente.id) return cliente.text;
+    
+    const clienteData = clientesData.find(c => c.id_cliente === parseInt(cliente.id));
+    if (!clienteData) return cliente.text;
+
+    return $(`
+        <div class="d-flex justify-content-between">
+            <div>
+                <strong>${clienteData.nome}</strong><br>
+                <small>${formatarCpfCnpj(clienteData.cpf_cnpj)}</small>
+            </div>
+            <small class="text-muted">${clienteData.cidade}/${clienteData.estado}</small>
+        </div>
+    `);
 }
 
 function preencherSelectProdutos(selectElement = null) {
-    const options = `
-        <option value="">Selecione o produto...</option>
-        ${produtosData.map(produto => `
-            <option value="${produto.id_produto}" 
-                    data-preco="${produto.preco_venda}"
-                    data-estoque="${produto.estoque}">
-                ${produto.nome} - R$ ${produto.preco_venda.toFixed(2)} 
-                (Estoque: ${produto.estoque})
-            </option>
-        `).join('')}
-    `;
+    const options = produtosData.map(produto => ({
+        id: produto.id_produto,
+        text: produto.nome,
+        preco: produto.preco_venda,
+        estoque: produto.estoque,
+        categoria: produto.categoria
+    }));
+
+    const initSelect2 = (select) => {
+        $(select).select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            language: 'pt-BR',
+            placeholder: 'Buscar produto...',
+            allowClear: true,
+            minimumInputLength: 2,
+            data: options,
+            templateResult: formatarOpcaoProduto,
+            templateSelection: formatarOpcaoProduto
+        }).on('select2:select', function(e) {
+            const produtoId = e.params.data.id;
+            const produto = produtosData.find(p => p.id_produto === parseInt(produtoId));
+            if (produto) {
+                const row = $(this).closest('.row');
+                row.find('.quantidade-input').attr('max', produto.estoque);
+                atualizarPrecoProduto(this);
+            }
+        });
+    };
 
     if (selectElement) {
-        selectElement.innerHTML = options;
+        initSelect2(selectElement);
     } else {
         document.querySelectorAll('.produto-select').forEach(select => {
-            select.innerHTML = options;
+            initSelect2(select);
         });
     }
+}
+
+function formatarOpcaoProduto(produto) {
+    if (!produto.id) return produto.text;
+    
+    const produtoData = produtosData.find(p => p.id_produto === parseInt(produto.id));
+    if (!produtoData) return produto.text;
+
+    return $(`
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <strong>${produtoData.nome}</strong><br>
+                <small class="badge bg-secondary">${produtoData.categoria}</small>
+            </div>
+            <div class="text-end">
+                <strong class="text-success">R$ ${produtoData.preco_venda.toFixed(2)}</strong><br>
+                <small class="text-muted">Estoque: ${produtoData.estoque}</small>
+            </div>
+        </div>
+    `);
 }
 
 function adicionarProduto() {
@@ -196,8 +346,8 @@ function adicionarProduto() {
     novoProduto.className = 'produto-item mb-2';
     novoProduto.innerHTML = `
         <div class="row g-2">
-            <div class="col-md-3">
-                <select class="form-select produto-select" required onchange="atualizarPrecoProduto(this)">
+            <div class="col-md-5">
+                <select class="form-select produto-select" required>
                     <option value="">Selecione o produto...</option>
                 </select>
             </div>
@@ -208,10 +358,10 @@ function adicionarProduto() {
             <div class="col-md-2">
                 <input type="text" class="form-control preco-input" placeholder="Preço" readonly>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <input type="text" class="form-control subtotal-input" placeholder="Subtotal" readonly>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-1">
                 <button type="button" class="btn btn-danger btn-sm w-100"
                         onclick="removerProduto(this)">
                     <i class="fas fa-trash"></i>
@@ -325,6 +475,9 @@ window.abrirModalNota = function() {
     container.innerHTML = '';
     adicionarProduto();
     
+    // Resetar selects
+    $('#clienteSelect').val(null).trigger('change');
+    
     calcularTotais();
     notaModal.show();
 }
@@ -398,8 +551,31 @@ window.visualizarNota = async function(id) {
         if (!response.ok) throw new Error('Erro ao carregar nota fiscal');
 
         const nota = await response.json();
-        // Implementar visualização detalhada da nota
-        console.log(nota);
+        
+        // Preencher dados no modal de visualização
+        document.getElementById('visualizacao-numero').textContent = `Nº ${nota.id_nota.toString().padStart(6, '0')}`;
+        document.getElementById('visualizacao-data').textContent = formatarData(nota.data_emissao);
+        document.getElementById('visualizacao-cliente').textContent = nota.cliente_nome;
+        document.getElementById('visualizacao-cpf-cnpj').textContent = formatarCpfCnpj(nota.cliente_cpf_cnpj);
+
+        // Preencher tabela de itens
+        const tbody = document.getElementById('visualizacao-itens');
+        tbody.innerHTML = nota.itens.map(item => `
+            <tr>
+                <td>${item.produto_nome}</td>
+                <td class="text-center">${item.quantidade}</td>
+                <td class="text-end">R$ ${item.preco_unitario.toFixed(2)}</td>
+                <td class="text-end">R$ ${item.subtotal_item.toFixed(2)}</td>
+            </tr>
+        `).join('');
+
+        // Preencher totais
+        document.getElementById('visualizacao-subtotal').textContent = `R$ ${nota.subtotal.toFixed(2)}`;
+        document.getElementById('visualizacao-impostos').textContent = `R$ ${nota.impostos.toFixed(2)}`;
+        document.getElementById('visualizacao-total').textContent = `R$ ${nota.total.toFixed(2)}`;
+
+        // Mostrar modal
+        visualizacaoModal.show();
     } catch (error) {
         mostrarAlerta('Erro ao visualizar nota fiscal', 'danger');
     }
