@@ -28,10 +28,8 @@ app.get('/', (req, res) => {
 
 // Rotas da API
 app.use('/api/auth', require('./routes/auth'));
-
-// Rotas protegidas
-const authMiddleware = require('./middleware/auth');
-app.use('/api/produtos', authMiddleware, require('./routes/produtos'));
+app.use('/api/produtos', require('./routes/produtos'));
+app.use('/api/clientes', require('./routes/clientes'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

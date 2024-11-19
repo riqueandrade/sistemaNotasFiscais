@@ -53,6 +53,7 @@ body {
     background-color: #f9fafb;
     font-weight: 600;
     color: var(--text-color);
+    white-space: nowrap;
 }
 
 .table td {
@@ -75,12 +76,13 @@ body {
     background-color: rgba(220,38,38,0.1);
 }
 
-.btn-edit:hover {
-    background-color: rgba(37,99,235,0.2);
+.btn-view {
+    color: var(--success-color);
+    background-color: rgba(5,150,105,0.1);
 }
 
-.btn-delete:hover {
-    background-color: rgba(220,38,38,0.2);
+.btn-edit:hover, .btn-view:hover, .btn-delete:hover {
+    transform: translateY(-1px);
 }
 
 /* Modal */
@@ -94,10 +96,18 @@ body {
     border-bottom: 1px solid var(--border-color);
 }
 
+/* Endereço truncado */
+.endereco-cell {
+    max-width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Animações */
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .table-responsive {
@@ -108,6 +118,10 @@ body {
 @media (max-width: 768px) {
     .container {
         padding: 1rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
     }
     
     .btn-action {
