@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: sistema-nf
+    env: node
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_URL
+        fromDatabase:
+          name: db_notasfiscais
+          property: connectionString
+
+databases:
+  - name: db_notasfiscais
+    databaseName: db_notasfiscais
+    user: db_notasfiscais_user
+    plan: free 

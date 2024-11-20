@@ -1,111 +1,126 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
-const dbPath = path.resolve(__dirname, 'database.sqlite');
-
-const db = new sqlite3.Database(dbPath, async (err) => {
-    if (err) {
-        console.error('Erro ao conectar ao banco de dados:', err);
-        return;
+// Usar URL de conexão do Render
+const pool = new Pool({
+    connectionString: process.env.DB_URL,
+    ssl: {
+        rejectUnauthorized: false // Necessário para conexão SSL do Render
     }
-    console.log('Conectado ao banco de dados SQLite');
-    
-    // Criar tabelas
-    db.serialize(() => {
-        // Tabela de usuários
-        db.run(`CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            senha TEXT NOT NULL,
-            cargo TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
-
-        // Tabela de clientes
-        db.run(`CREATE TABLE IF NOT EXISTS clientes (
-            id_cliente INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            cpf_cnpj TEXT UNIQUE NOT NULL,
-            telefone TEXT,
-            email TEXT,
-            cep TEXT,
-            rua TEXT,
-            numero TEXT,
-            complemento TEXT,
-            bairro TEXT,
-            cidade TEXT,
-            estado TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
-
-        // Tabela de produtos
-        db.run(`CREATE TABLE IF NOT EXISTS produtos (
-            id_produto INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            categoria TEXT NOT NULL,
-            preco_venda DECIMAL(10,2) NOT NULL,
-            estoque INTEGER NOT NULL,
-            descricao TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
-
-        // Tabela de notas fiscais
-        db.run(`CREATE TABLE IF NOT EXISTS notas_fiscais (
-            id_nota INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_cliente INTEGER NOT NULL,
-            data_emissao DATETIME DEFAULT (datetime('now', 'localtime')),
-            subtotal DECIMAL(10,2) NOT NULL,
-            impostos DECIMAL(10,2) NOT NULL,
-            total DECIMAL(10,2) NOT NULL,
-            status TEXT DEFAULT 'emitida',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente)
-        )`);
-
-        // Tabela de itens da nota fiscal
-        db.run(`CREATE TABLE IF NOT EXISTS itens_nota_fiscal (
-            id_item INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_nota INTEGER NOT NULL,
-            id_produto INTEGER NOT NULL,
-            quantidade INTEGER NOT NULL,
-            preco_unitario DECIMAL(10,2) NOT NULL,
-            subtotal_item DECIMAL(10,2) NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (id_nota) REFERENCES notas_fiscais(id_nota) ON DELETE CASCADE,
-            FOREIGN KEY (id_produto) REFERENCES produtos(id_produto)
-        )`);
-
-        // Tabela de configurações
-        db.run(`CREATE TABLE IF NOT EXISTS configuracoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            aliquotaPadrao DECIMAL(5,2) NOT NULL,
-            icms DECIMAL(5,2) NOT NULL,
-            razaoSocial TEXT NOT NULL,
-            cnpj TEXT NOT NULL,
-            ie TEXT,
-            cep TEXT NOT NULL,
-            rua TEXT NOT NULL,
-            numero TEXT NOT NULL,
-            complemento TEXT,
-            bairro TEXT NOT NULL,
-            cidade TEXT NOT NULL,
-            estado TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
-
-        // Criar usuário admin padrão se não existir
-        const senhaHash = bcrypt.hashSync('admin123', 10);
-        db.get('SELECT id FROM usuarios WHERE email = ?', ['admin@exemplo.com'], (err, usuario) => {
-            if (!usuario) {
-                db.run(`
-                    INSERT INTO usuarios (nome, email, senha, cargo)
-                    VALUES (?, ?, ?, ?)
-                `, ['Administrador', 'admin@exemplo.com', senhaHash, 'admin']);
-            }
-        });
-    });
 });
 
-module.exports = db;
+// Função para criar as tabelas
+async function initDatabase() {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Tabela de usuários
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id SERIAL PRIMARY KEY,
+                nome VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                senha VARCHAR(255) NOT NULL,
+                cargo VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela de clientes
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS clientes (
+                id_cliente SERIAL PRIMARY KEY,
+                nome VARCHAR(255) NOT NULL,
+                cpf_cnpj VARCHAR(20) UNIQUE NOT NULL,
+                telefone VARCHAR(20),
+                email VARCHAR(255),
+                cep VARCHAR(10),
+                rua VARCHAR(255),
+                numero VARCHAR(20),
+                complemento VARCHAR(255),
+                bairro VARCHAR(255),
+                cidade VARCHAR(255),
+                estado VARCHAR(2),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela de produtos
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS produtos (
+                id_produto SERIAL PRIMARY KEY,
+                nome VARCHAR(255) NOT NULL,
+                categoria VARCHAR(50) NOT NULL,
+                preco_venda DECIMAL(10,2) NOT NULL,
+                estoque INTEGER NOT NULL,
+                descricao TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela de notas fiscais
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS notas_fiscais (
+                id_nota SERIAL PRIMARY KEY,
+                id_cliente INTEGER NOT NULL REFERENCES clientes(id_cliente),
+                data_emissao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                subtotal DECIMAL(10,2) NOT NULL,
+                impostos DECIMAL(10,2) NOT NULL,
+                total DECIMAL(10,2) NOT NULL,
+                status VARCHAR(20) DEFAULT 'emitida',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela de itens da nota fiscal
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS itens_nota_fiscal (
+                id_item SERIAL PRIMARY KEY,
+                id_nota INTEGER NOT NULL REFERENCES notas_fiscais(id_nota) ON DELETE CASCADE,
+                id_produto INTEGER NOT NULL REFERENCES produtos(id_produto),
+                quantidade INTEGER NOT NULL,
+                preco_unitario DECIMAL(10,2) NOT NULL,
+                subtotal_item DECIMAL(10,2) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela de configurações
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS configuracoes (
+                id SERIAL PRIMARY KEY,
+                aliquotaPadrao DECIMAL(5,2) NOT NULL,
+                icms DECIMAL(5,2) NOT NULL,
+                razaoSocial VARCHAR(255) NOT NULL,
+                cnpj VARCHAR(20) NOT NULL,
+                ie VARCHAR(20),
+                cep VARCHAR(10) NOT NULL,
+                rua VARCHAR(255) NOT NULL,
+                numero VARCHAR(20) NOT NULL,
+                complemento VARCHAR(255),
+                bairro VARCHAR(255) NOT NULL,
+                cidade VARCHAR(255) NOT NULL,
+                estado VARCHAR(2) NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await client.query('COMMIT');
+        console.log('Banco de dados inicializado com sucesso!');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Erro ao inicializar banco de dados:', err);
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+// Inicializar banco de dados
+initDatabase().catch(console.error);
+
+module.exports = {
+    query: (text, params) => pool.query(text, params),
+    pool
+};
