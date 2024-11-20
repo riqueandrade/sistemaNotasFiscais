@@ -1,13 +1,36 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
-// Usar URL de conexão do Render
-const pool = new Pool({
+// Configuração do pool com SSL
+const config = {
     connectionString: process.env.DB_URL,
-    ssl: {
-        rejectUnauthorized: false // Necessário para conexão SSL do Render
-    }
+    ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: false
+    } : false,
+    connectionTimeoutMillis: 5000,
+    max: 20,
+    idleTimeoutMillis: 30000
+};
+
+const pool = new Pool(config);
+
+// Listener de erros do pool
+pool.on('error', (err, client) => {
+    console.error('Erro inesperado no pool de conexões:', err);
 });
+
+// Função para testar conexão
+async function testConnection() {
+    try {
+        const client = await pool.connect();
+        console.log('Conexão com o banco de dados estabelecida com sucesso!');
+        client.release();
+        return true;
+    } catch (err) {
+        console.error('Erro ao conectar ao banco de dados:', err);
+        return false;
+    }
+}
 
 // Função para criar as tabelas
 async function initDatabase() {
@@ -117,8 +140,15 @@ async function initDatabase() {
     }
 }
 
-// Inicializar banco de dados
-initDatabase().catch(console.error);
+// Testar conexão e inicializar banco
+testConnection()
+    .then(success => {
+        if (success) {
+            return initDatabase();
+        }
+        throw new Error('Falha ao conectar ao banco de dados');
+    })
+    .catch(console.error);
 
 module.exports = {
     query: (text, params) => pool.query(text, params),

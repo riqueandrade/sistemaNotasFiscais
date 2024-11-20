@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "admin": "node admin.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
