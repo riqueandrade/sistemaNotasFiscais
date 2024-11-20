@@ -4,20 +4,26 @@ const bcrypt = require('bcrypt');
 // Remover o ?ssl=true da URL e colocar na configuração
 const dbUrl = process.env.DB_URL;
 
-// Configuração do pool com SSL e timeout ajustado
+// Configurações melhoradas do pool
 const config = {
     connectionString: dbUrl,
     ssl: {
-        rejectUnauthorized: false // Necessário para conexão com Render
+        rejectUnauthorized: false
     },
-    connectionTimeoutMillis: 2000, // 2 segundos
-    idleTimeoutMillis: 30000,
-    max: 20 // Número máximo de conexões no pool
+    // Ajustes de timeout
+    connectionTimeoutMillis: 5000, // 5 segundos para timeout de conexão
+    idleTimeoutMillis: 30000,      // 30 segundos para timeout de conexão ociosa
+    max: 20,                       // Máximo de conexões no pool
+    // Novas configurações
+    keepAlive: true,              // Manter conexão ativa
+    keepAliveInitialDelayMillis: 10000, // Delay inicial para keepAlive
+    statement_timeout: 30000,     // Timeout para statements SQL
+    query_timeout: 30000          // Timeout para queries
 };
 
 const pool = new Pool(config);
 
-// Melhorar o log de erros
+// Melhorar tratamento de erros
 pool.on('error', (err, client) => {
     console.error('Erro inesperado no pool de conexões:', {
         message: err.message,
@@ -25,8 +31,13 @@ pool.on('error', (err, client) => {
         code: err.code,
         detail: err.detail
     });
-    if (client) {
-        client.release(true);
+    
+    // Tentar reconectar se for erro de timeout
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || 
+        err.code === 'ECONNRESET' || 
+        err.message.includes('timeout')) {
+        console.log('Tentando reconectar...');
+        client.release(true); // Force release
     }
 });
 
@@ -46,7 +57,10 @@ async function testConnection(retries = 3) {
                 code: err.code,
                 stack: err.stack
             });
+            
             if (i === retries - 1) throw err;
+            
+            // Esperar antes de tentar novamente
             await new Promise(resolve => setTimeout(resolve, 3000));
         }
     }
