@@ -9,6 +9,8 @@ services:
         value: production
       - key: JWT_SECRET
         generateValue: true
+      - key: PORT
+        value: 3000
       - key: DB_URL
         fromDatabase:
           name: db_notasfiscais
