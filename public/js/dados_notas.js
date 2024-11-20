@@ -1,5 +1,5 @@
 // Configurações
-const API_URL = window.location.hostname === 'localhost' 
+const API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api'
     : 'https://sistemanotasfiscais.onrender.com/api';
 
@@ -9,17 +9,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const usuario = JSON.parse(localStorage.getItem('usuario'));
     if (usuario) {
         document.getElementById('userName').textContent = usuario.nome;
+        document.getElementById('userEmail').textContent = usuario.email;
     }
 
     // Aplicar máscaras
     aplicarMascaras();
-    
+
     // Carregar configurações
     carregarConfiguracoes();
-    
+
     // Adicionar listener para o formulário
     document.getElementById('configForm').addEventListener('submit', salvarConfiguracoes);
-    
+
     // Adicionar listener para busca de CEP
     document.getElementById('cep').addEventListener('blur', buscarCep);
 });
@@ -93,7 +94,7 @@ async function salvarConfiguracoes(event) {
     const btnSalvar = document.querySelector('button[type="submit"]');
     const btnText = btnSalvar.querySelector('.btn-text');
     const btnLoader = btnSalvar.querySelector('.btn-loader');
-    
+
     // Mostrar loader
     btnText.classList.add('d-none');
     btnLoader.classList.remove('d-none');
@@ -144,7 +145,7 @@ async function buscarCep() {
     try {
         const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
         const data = await response.json();
-        
+
         if (!data.erro) {
             document.getElementById('rua').value = data.logradouro;
             document.getElementById('bairro').value = data.bairro;
@@ -186,7 +187,7 @@ function mostrarAlerta(mensagem, tipo) {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     document.body.appendChild(alertDiv);
-    
+
     setTimeout(() => {
         alertDiv.remove();
     }, 3000);

@@ -1,4 +1,4 @@
-const API_URL = window.location.hostname === 'localhost' 
+const API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api'
     : 'https://sistemanotasfiscais.onrender.com/api';
 
@@ -7,10 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const togglePassword = document.querySelector('.toggle-password');
     const senhaInput = document.getElementById('senha');
 
-    togglePassword.addEventListener('click', function() {
+    togglePassword.addEventListener('click', function () {
         const type = senhaInput.getAttribute('type') === 'password' ? 'text' : 'password';
         senhaInput.setAttribute('type', type);
-        
+
         // Trocar ícone
         const icon = this.querySelector('i');
         icon.classList.toggle('fa-eye');
@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Lembrar email
     const emailInput = document.getElementById('email');
     const lembrarCheckbox = document.getElementById('lembrar');
-    
+
     // Carregar email salvo
     const savedEmail = localStorage.getItem('savedEmail');
     if (savedEmail) {
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function handleLogin(event) {
     event.preventDefault();
-    
+
     const email = document.getElementById('email').value;
     const senha = document.getElementById('senha').value;
     const lembrar = document.getElementById('lembrar').checked;
@@ -39,7 +39,7 @@ async function handleLogin(event) {
     const submitButton = document.querySelector('button[type="submit"]');
     const btnText = submitButton.querySelector('.btn-text');
     const btnLoader = submitButton.querySelector('.btn-loader');
-    
+
     if (lembrar) {
         localStorage.setItem('savedEmail', email);
     } else {
@@ -49,10 +49,10 @@ async function handleLogin(event) {
     btnText.classList.add('d-none');
     btnLoader.classList.remove('d-none');
     submitButton.disabled = true;
-    
+
     try {
         console.log('Tentando login em:', API_URL);
-        
+
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: {
@@ -77,11 +77,11 @@ async function handleLogin(event) {
         // Salvar dados do usuário
         localStorage.setItem('token', data.token);
         localStorage.setItem('usuario', JSON.stringify(data.usuario));
-        
+
         submitButton.classList.remove('btn-primary');
         submitButton.classList.add('btn-success');
         btnLoader.innerHTML = '<i class="fas fa-check"></i>';
-        
+
         setTimeout(() => {
             window.location.href = '/html/produtos.html';
         }, 1000);
@@ -89,7 +89,7 @@ async function handleLogin(event) {
         console.error('Erro detalhado:', error);
         errorMessage.textContent = 'Erro ao conectar com o servidor. Tente novamente.';
         errorMessage.style.display = 'block';
-        
+
         btnText.classList.remove('d-none');
         btnLoader.classList.add('d-none');
         submitButton.disabled = false;

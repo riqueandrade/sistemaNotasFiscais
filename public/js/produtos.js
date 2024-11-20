@@ -1,5 +1,5 @@
 // Configurações
-const API_URL = window.location.hostname === 'localhost' 
+const API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api'
     : 'https://sistemanotasfiscais.onrender.com/api';
 let produtosData = [];
@@ -16,16 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Inicializar modal do Bootstrap
     produtoModal = new bootstrap.Modal(document.getElementById('produtoModal'));
-    
+
     // Carregar dados do usuário
     const usuario = JSON.parse(localStorage.getItem('usuario'));
     if (usuario) {
         document.getElementById('userName').textContent = usuario.nome;
+        document.getElementById('userEmail').textContent = usuario.email;
     }
-    
+
     // Carregar produtos
     carregarProdutos();
-    
+
     // Adicionar listeners para filtros
     document.getElementById('searchInput').addEventListener('input', filtrarProdutos);
     document.getElementById('categoriaFilter').addEventListener('change', filtrarProdutos);
@@ -42,7 +43,7 @@ async function carregarProdutos() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
+
         if (!response.ok) {
             if (response.status === 401) {
                 window.location.href = '/html/login.html';
@@ -71,7 +72,7 @@ async function salvarProduto() {
     const btnSalvar = document.querySelector('#produtoModal .btn-primary');
     const btnText = btnSalvar.querySelector('.btn-text');
     const btnLoader = btnSalvar.querySelector('.btn-loader');
-    
+
     // Mostrar loader
     btnText.classList.add('d-none');
     btnLoader.classList.remove('d-none');
@@ -138,7 +139,7 @@ async function excluirProduto(id) {
 function renderizarProdutos(produtos) {
     const tbody = document.getElementById('produtosTableBody');
     const emptyMessage = document.getElementById('emptyMessage');
-    
+
     if (produtos.length === 0) {
         tbody.innerHTML = '';
         emptyMessage.style.display = 'block';
@@ -148,7 +149,7 @@ function renderizarProdutos(produtos) {
     emptyMessage.style.display = 'none';
     tbody.innerHTML = produtos.map(produto => {
         const precoVenda = parseFloat(produto.preco_venda);
-        
+
         return `
             <tr>
                 <td>${produto.id_produto}</td>
@@ -226,10 +227,10 @@ function filtrarProdutos() {
 function abrirModalProduto(produto = null) {
     const form = document.getElementById('produtoForm');
     form.reset();
-    
+
     document.getElementById('modalTitle').textContent = produto ? 'Editar Produto' : 'Novo Produto';
     document.getElementById('produtoId').value = produto ? produto.id_produto : '';
-    
+
     if (produto) {
         document.getElementById('nome').value = produto.nome;
         document.getElementById('categoria').value = produto.categoria;
@@ -237,7 +238,7 @@ function abrirModalProduto(produto = null) {
         document.getElementById('estoque').value = produto.estoque;
         document.getElementById('descricao').value = produto.descricao || '';
     }
-    
+
     produtoModal.show();
 }
 
@@ -256,7 +257,7 @@ function mostrarAlerta(mensagem, tipo) {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     document.body.appendChild(alertDiv);
-    
+
     setTimeout(() => {
         alertDiv.remove();
     }, 3000);

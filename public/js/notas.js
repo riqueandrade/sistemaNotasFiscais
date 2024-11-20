@@ -1,5 +1,5 @@
 // Configurações e variáveis globais
-const API_URL = window.location.hostname === 'localhost' 
+const API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api'
     : 'https://sistemanotasfiscais.onrender.com/api';
 let notasData = [];
@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const usuario = JSON.parse(localStorage.getItem('usuario'));
         if (usuario) {
             document.getElementById('userName').textContent = usuario.nome;
+            document.getElementById('userEmail').textContent = usuario.email;
         }
 
         // Primeiro, carregar clientes e produtos
@@ -129,7 +130,7 @@ function preencherSelectClientes() {
     try {
         // Limpar select
         select.innerHTML = '<option value="">Selecione o cliente...</option>';
-        
+
         // Adicionar opções
         clientesData.forEach(cliente => {
             const option = document.createElement('option');
@@ -149,7 +150,7 @@ function preencherSelectClientes() {
             dropdownParent: $('#notaModal'),
             escapeMarkup: markup => markup
         });
-        
+
         console.log('Select2 de clientes inicializado com sucesso!');
     } catch (error) {
         console.error('Erro ao inicializar select de clientes:', error);
@@ -159,7 +160,7 @@ function preencherSelectClientes() {
 
 function preencherSelectProdutos(selectElement = null) {
     console.log('Preenchendo select de produtos...');
-    
+
     const preencherSelect = (select) => {
         if (!select) {
             console.error('Select de produtos não encontrado!');
@@ -169,11 +170,11 @@ function preencherSelectProdutos(selectElement = null) {
         try {
             // Limpar select
             select.innerHTML = '<option value="">Selecione o produto...</option>';
-            
+
             // Adicionar opções
             produtosData.forEach(produto => {
                 const precoVenda = parseFloat(produto.preco_venda);
-                
+
                 const option = document.createElement('option');
                 option.value = produto.id_produto;
                 option.textContent = `${produto.nome} - R$ ${precoVenda.toFixed(2)}`;
@@ -191,7 +192,7 @@ function preencherSelectProdutos(selectElement = null) {
                 language: 'pt-BR',
                 searchInputPlaceholder: 'Digite para buscar...',
                 dropdownParent: $('#notaModal')
-            }).on('select2:select', function() {
+            }).on('select2:select', function () {
                 atualizarPrecoProduto(this);
             });
 
@@ -356,7 +357,7 @@ function atualizarPrecoProduto(select) {
 function calcularTotais() {
     let subtotal = 0;
 
-    $('.produto-item').each(function() {
+    $('.produto-item').each(function () {
         const row = $(this);
         const select = row.find('.produto-select');
         const quantidade = parseInt(row.find('.quantidade-input').val()) || 0;
@@ -380,10 +381,10 @@ function calcularTotais() {
 }
 
 // Adicionar listeners para quantidade
-$(document).on('input', '.quantidade-input', function() {
+$(document).on('input', '.quantidade-input', function () {
     const row = $(this).closest('.produto-item');
     const select = row.find('.produto-select');
-    
+
     if (select.val()) {
         const preco = parseFloat(select.find(':selected').data('preco'));
         const quantidade = parseInt($(this).val()) || 0;
@@ -454,7 +455,7 @@ window.abrirModalNota = async function () {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-        
+
         if (response.ok) {
             const config = await response.json();
             document.getElementById('impostos').value = config.aliquotaPadrao || 10;
@@ -568,7 +569,7 @@ window.visualizarNota = async function (id) {
 window.imprimirNota = async function (id) {
     try {
         console.log('Iniciando impressão da nota:', id);
-        
+
         const response = await fetch(`${API_URL}/notas/${id}/pdf`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`

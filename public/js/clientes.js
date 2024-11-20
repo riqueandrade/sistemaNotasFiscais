@@ -1,5 +1,5 @@
 // Configurações e variáveis globais
-const API_URL = window.location.hostname === 'localhost' 
+const API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api'
     : 'https://sistemanotasfiscais.onrender.com/api';
 let clientesData = [];
@@ -14,7 +14,7 @@ async function carregarClientes() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
+
         if (!response.ok) {
             if (response.status === 401) {
                 window.location.href = '/html/login.html';
@@ -33,7 +33,7 @@ async function carregarClientes() {
 function renderizarClientes(clientes) {
     const tbody = document.getElementById('clientesTableBody');
     const emptyMessage = document.getElementById('emptyMessage');
-    
+
     if (clientes.length === 0) {
         tbody.innerHTML = '';
         emptyMessage.style.display = 'block';
@@ -122,7 +122,7 @@ function aplicarMascaras() {
     $('#cep').inputmask({
         mask: '99999-999',
         keepStatic: true,
-        onComplete: function() {
+        onComplete: function () {
             buscarCep();
         }
     });
@@ -135,7 +135,7 @@ async function buscarCep() {
     try {
         const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
         const data = await response.json();
-        
+
         if (!data.erro) {
             document.getElementById('rua').value = data.logradouro;
             document.getElementById('bairro').value = data.bairro;
@@ -152,7 +152,7 @@ function filtrarClientes() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const orderBy = document.getElementById('orderBy').value;
 
-    let clientesFiltrados = clientesData.filter(cliente => 
+    let clientesFiltrados = clientesData.filter(cliente =>
         cliente.nome.toLowerCase().includes(searchTerm) ||
         cliente.cpf_cnpj.includes(searchTerm)
     );
@@ -187,27 +187,27 @@ function mostrarAlerta(mensagem, tipo) {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     document.body.appendChild(alertDiv);
-    
+
     setTimeout(() => {
         alertDiv.remove();
     }, 3000);
 }
 
 // Funções de manipulação do modal e CRUD
-window.abrirModalCliente = function(cliente = null) {
+window.abrirModalCliente = function (cliente = null) {
     const form = document.getElementById('clienteForm');
     form.reset();
-    
+
     Array.from(form.elements).forEach(element => {
         element.disabled = false;
     });
-    
+
     document.querySelector('#clienteModal .btn-primary').style.display = 'block';
     document.querySelector('#clienteModal .btn-secondary').textContent = 'Cancelar';
-    
+
     document.getElementById('modalTitle').textContent = cliente ? 'Editar Cliente' : 'Novo Cliente';
     document.getElementById('clienteId').value = cliente ? cliente.id_cliente : '';
-    
+
     if (cliente) {
         document.getElementById('nome').value = cliente.nome;
         document.getElementById('cpf_cnpj').value = cliente.cpf_cnpj;
@@ -221,21 +221,22 @@ window.abrirModalCliente = function(cliente = null) {
         document.getElementById('cidade').value = cliente.cidade || '';
         document.getElementById('estado').value = cliente.estado || '';
     }
-    
+
     clienteModal.show();
 }
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
     clienteModal = new bootstrap.Modal(document.getElementById('clienteModal'));
-    
+
     const usuario = JSON.parse(localStorage.getItem('usuario'));
     if (usuario) {
         document.getElementById('userName').textContent = usuario.nome;
+        document.getElementById('userEmail').textContent = usuario.email;
     }
-    
+
     carregarClientes();
-    
+
     document.getElementById('searchInput').addEventListener('input', filtrarClientes);
     document.getElementById('orderBy').addEventListener('change', filtrarClientes);
 
@@ -243,30 +244,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Exportar outras funções para o escopo global
-window.editarCliente = function(id) {
+window.editarCliente = function (id) {
     const cliente = clientesData.find(c => c.id_cliente === id);
     if (cliente) {
         abrirModalCliente(cliente);
     }
 }
 
-window.visualizarCliente = function(id) {
+window.visualizarCliente = function (id) {
     const cliente = clientesData.find(c => c.id_cliente === id);
     if (cliente) {
         abrirModalCliente(cliente);
-        
+
         const form = document.getElementById('clienteForm');
         Array.from(form.elements).forEach(element => {
             element.disabled = true;
         });
-        
+
         document.getElementById('modalTitle').textContent = 'Visualizar Cliente';
         document.querySelector('#clienteModal .btn-primary').style.display = 'none';
         document.querySelector('#clienteModal .btn-secondary').textContent = 'Fechar';
     }
 }
 
-window.excluirCliente = async function(id) {
+window.excluirCliente = async function (id) {
     if (!confirm('Tem certeza que deseja excluir este cliente?')) return;
 
     try {
@@ -286,7 +287,7 @@ window.excluirCliente = async function(id) {
     }
 }
 
-window.salvarCliente = async function() {
+window.salvarCliente = async function () {
     const form = document.getElementById('clienteForm');
     if (!form.checkValidity()) {
         form.reportValidity();
@@ -296,7 +297,7 @@ window.salvarCliente = async function() {
     const btnSalvar = document.querySelector('#clienteModal .btn-primary');
     const btnText = btnSalvar.querySelector('.btn-text');
     const btnLoader = btnSalvar.querySelector('.btn-loader');
-    
+
     btnText.classList.add('d-none');
     btnLoader.classList.remove('d-none');
     btnSalvar.disabled = true;
@@ -407,13 +408,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Função para abrir o modal de alteração de senha
-window.alterarSenha = function() {
+window.alterarSenha = function () {
     document.getElementById('senhaForm').reset();
     senhaModal.show();
 }
 
 // Função para salvar a nova senha
-window.salvarNovaSenha = async function() {
+window.salvarNovaSenha = async function () {
     const form = document.getElementById('senhaForm');
     if (!form.checkValidity()) {
         form.reportValidity();
@@ -467,7 +468,7 @@ window.salvarNovaSenha = async function() {
 }
 
 // Adicionar função para alternar visibilidade da senha
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     if (e.target.closest('.toggle-password')) {
         const button = e.target.closest('.toggle-password');
         const input = button.parentElement.querySelector('input');
@@ -484,7 +485,7 @@ document.addEventListener('click', function(e) {
 });
 
 // Adicionar logout
-window.logout = function() {
+window.logout = function () {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     window.location.href = '/html/login.html';
