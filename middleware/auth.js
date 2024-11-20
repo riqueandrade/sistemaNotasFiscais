@@ -3,9 +3,20 @@ const JWT_SECRET = process.env.JWT_SECRET || 'sua_chave_secreta_aqui';
 
 async function authMiddleware(req, res, next) {
     try {
-        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        let token = null;
+        
+        if (req.cookies && req.cookies.token) {
+            token = req.cookies.token;
+        }
+        else if (req.headers.authorization) {
+            const authHeader = req.headers.authorization;
+            if (authHeader.startsWith('Bearer ')) {
+                token = authHeader.substring(7);
+            }
+        }
 
         if (!token) {
+            console.log('Token não fornecido');
             return res.status(401).json({ erro: 'Token não fornecido' });
         }
 
