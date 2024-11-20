@@ -7,19 +7,23 @@ const config = {
     ssl: {
         rejectUnauthorized: false // Necessário para conexão com Render
     },
-    connectionTimeoutMillis: 10000, // Aumentar timeout para 10 segundos
-    max: 10, // Reduzir número máximo de conexões
+    connectionTimeoutMillis: 10000, // 10 segundos
     idleTimeoutMillis: 30000,
-    retryDelay: 3000 // Adicionar delay entre tentativas
+    max: 20 // Número máximo de conexões no pool
 };
 
 const pool = new Pool(config);
 
-// Melhorar o tratamento de erros na conexão
+// Melhorar o log de erros
 pool.on('error', (err, client) => {
-    console.error('Erro inesperado no pool de conexões:', err);
+    console.error('Erro inesperado no pool de conexões:', {
+        message: err.message,
+        stack: err.stack,
+        code: err.code,
+        detail: err.detail
+    });
     if (client) {
-        client.release(true); // Forçar liberação do cliente
+        client.release(true);
     }
 });
 
@@ -29,12 +33,18 @@ async function testConnection(retries = 3) {
         try {
             const client = await pool.connect();
             console.log('Conexão com o banco de dados estabelecida com sucesso!');
+            const result = await client.query('SELECT NOW()');
+            console.log('Teste de query bem sucedido:', result.rows[0]);
             client.release();
             return true;
         } catch (err) {
-            console.error(`Tentativa ${i + 1}/${retries} falhou:`, err);
+            console.error(`Tentativa ${i + 1}/${retries} falhou:`, {
+                message: err.message,
+                code: err.code,
+                stack: err.stack
+            });
             if (i === retries - 1) throw err;
-            await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar 3s antes de tentar novamente
+            await new Promise(resolve => setTimeout(resolve, 3000));
         }
     }
     return false;
@@ -148,15 +158,19 @@ async function initDatabase() {
     }
 }
 
-// Testar conexão e inicializar banco
+// Testar conexão ao inicializar
 testConnection()
     .then(success => {
         if (success) {
+            console.log('Banco de dados conectado e pronto para uso');
             return initDatabase();
         }
-        throw new Error('Falha ao conectar ao banco de dados');
+        throw new Error('Falha ao conectar ao banco de dados após várias tentativas');
     })
-    .catch(console.error);
+    .catch(err => {
+        console.error('Erro fatal na inicialização do banco:', err);
+        process.exit(1);
+    });
 
 // Exportar o pool e outras funções
 module.exports = {
