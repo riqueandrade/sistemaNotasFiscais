@@ -58,6 +58,11 @@ body {
 
 .table td {
     vertical-align: middle;
+    border-bottom: 1px solid #999999;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
 }
 
 /* Botões de ação */
@@ -277,4 +282,13 @@ body {
     td.actions-cell {
         width: 46px;
     }
+} 
+
+/* Separador de linhas na tabela */
+.table tbody tr {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.table tbody tr:last-child {
+    border-bottom: none;
 } 

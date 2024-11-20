@@ -57,6 +57,11 @@ body {
 
 .table td {
     vertical-align: middle;
+    border-bottom: 1px solid #999999;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
 }
 
 /* Botões de ação */

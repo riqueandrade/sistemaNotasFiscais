@@ -58,6 +58,11 @@ body {
 
 .table td {
     vertical-align: middle;
+    border-bottom: 1px solid #999999;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
 }
 
 /* Botões de ação */
@@ -383,4 +388,22 @@ body {
 
 /* Remover o @font-face anterior e adicionar CDN da Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+  
+/* Separador de linhas na tabela */
+.table tbody tr {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.table tbody tr:last-child {
+    border-bottom: none;
+}
+
+/* Também para a tabela de visualização */
+#visualizacao-itens tr {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+#visualizacao-itens tr:last-child {
+    border-bottom: none;
+}
   
