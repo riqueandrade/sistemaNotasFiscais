@@ -1,0 +1,137 @@
+:root {
+    --primary-color: #2563eb;
+    --secondary-color: #1e40af;
+    --text-color: #1f2937;
+    --light-text: #6b7280;
+    --border-color: #e5e7eb;
+    --background-color: #f8fafc;
+    --success-color: #059669;
+    --danger-color: #dc2626;
+    --border-input: #999999;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--background-color);
+    min-height: 100vh;
+}
+
+/* Navbar */
+.navbar {
+    background-color: var(--primary-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* Card */
+.card {
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 0.5rem;
+}
+
+.card-header {
+    background-color: #f9fafb;
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem;
+}
+
+.card-title {
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+/* Form */
+.form-control, .form-select {
+    border: 1px solid var(--border-input);
+    padding: 0.625rem 0.75rem;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(37,99,235,0.1);
+}
+
+.form-label {
+    color: var(--text-color);
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+/* Seções */
+h6 {
+    color: var(--text-color);
+    font-weight: 600;
+    position: relative;
+    padding-bottom: 0.5rem;
+}
+
+h6::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 2rem;
+    height: 2px;
+    background-color: var(--primary-color);
+}
+
+/* Botões */
+.btn-primary {
+    background-color: var(--primary-color);
+    border: none;
+    padding: 0.625rem 1.25rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background-color: #f3f4f6;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+}
+
+.btn-secondary:hover {
+    background-color: #e5e7eb;
+    border-color: #d1d5db;
+    color: var(--text-color);
+}
+
+/* Animações */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .row {
+        margin-right: -0.5rem;
+        margin-left: -0.5rem;
+    }
+    
+    .col-md-4, .col-md-6, .col-md-8, .col-md-12 {
+        padding-right: 0.5rem;
+        padding-left: 0.5rem;
+    }
+} 

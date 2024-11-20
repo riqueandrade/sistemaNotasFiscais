@@ -55,12 +55,11 @@ const db = new sqlite3.Database(dbPath, async (err) => {
         db.run(`CREATE TABLE IF NOT EXISTS notas_fiscais (
             id_nota INTEGER PRIMARY KEY AUTOINCREMENT,
             id_cliente INTEGER NOT NULL,
-            data_emissao DATETIME DEFAULT CURRENT_TIMESTAMP,
+            data_emissao DATETIME DEFAULT (datetime('now', 'localtime')),
             subtotal DECIMAL(10,2) NOT NULL,
             impostos DECIMAL(10,2) NOT NULL,
             total DECIMAL(10,2) NOT NULL,
             status TEXT DEFAULT 'emitida',
-            observacao TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente)
         )`);
@@ -76,6 +75,24 @@ const db = new sqlite3.Database(dbPath, async (err) => {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (id_nota) REFERENCES notas_fiscais(id_nota) ON DELETE CASCADE,
             FOREIGN KEY (id_produto) REFERENCES produtos(id_produto)
+        )`);
+
+        // Tabela de configurações
+        db.run(`CREATE TABLE IF NOT EXISTS configuracoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            aliquotaPadrao DECIMAL(5,2) NOT NULL,
+            icms DECIMAL(5,2) NOT NULL,
+            razaoSocial TEXT NOT NULL,
+            cnpj TEXT NOT NULL,
+            ie TEXT,
+            cep TEXT NOT NULL,
+            rua TEXT NOT NULL,
+            numero TEXT NOT NULL,
+            complemento TEXT,
+            bairro TEXT NOT NULL,
+            cidade TEXT NOT NULL,
+            estado TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
         // Criar usuário admin padrão se não existir

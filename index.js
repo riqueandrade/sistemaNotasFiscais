@@ -26,6 +26,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/produtos', require('./routes/produtos'));
 app.use('/api/clientes', require('./routes/clientes'));
 app.use('/api/notas', require('./routes/notasFiscais'));
+app.use('/api/configuracoes', require('./routes/configuracoes'));
 
 // Rotas das páginas
 app.get('/', (req, res) => {

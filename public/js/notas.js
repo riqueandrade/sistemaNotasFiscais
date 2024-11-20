@@ -422,7 +422,7 @@ function mostrarAlerta(mensagem, tipo) {
 }
 
 // Funções de manipulação de notas
-window.abrirModalNota = function () {
+window.abrirModalNota = async function () {
     const form = document.getElementById('notaForm');
     form.reset();
 
@@ -435,6 +435,23 @@ window.abrirModalNota = function () {
     $('#clienteSelect').val(null).trigger('change');
 
     calcularTotais();
+
+    // Carregar alíquota padrão
+    try {
+        const response = await fetch(`${API_URL}/configuracoes`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (response.ok) {
+            const config = await response.json();
+            document.getElementById('impostos').value = config.aliquotaPadrao || 10;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
+    }
+
     notaModal.show();
 }
 

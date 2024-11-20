@@ -100,27 +100,28 @@ const notasFiscaisController = {
                 return res.status(400).json({ erro: 'Cliente não encontrado' });
             }
 
-            // Validar produtos e estoque
-            for (let item of itens) {
-                const produto = await buscarProduto(item.id_produto);
-                if (!produto) {
-                    return res.status(400).json({ erro: `Produto ${item.id_produto} não encontrado` });
-                }
-                if (produto.estoque < item.quantidade) {
-                    return res.status(400).json({ 
-                        erro: `Estoque insuficiente para o produto ${produto.nome}` 
-                    });
-                }
-            }
-
             // Calcular totais
             let subtotal = 0;
             for (let item of itens) {
                 subtotal += item.quantidade * item.preco_unitario;
             }
 
+            const config = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1', [], (err, config) => {
+                    if (err) reject(err);
+                    else resolve(config);
+                });
+            });
+
+            const impostos = req.body.impostos || config?.aliquotaPadrao || 10;
+
             const valorImpostos = (subtotal * impostos) / 100;
             const total = subtotal + valorImpostos;
+
+            // Data atual no fuso horário brasileiro correto
+            const dataEmissao = new Date().toLocaleString('pt-BR', { 
+                timeZone: 'America/Sao_Paulo' 
+            });
 
             // Iniciar transação
             await new Promise((resolve, reject) => {
@@ -133,8 +134,14 @@ const notasFiscaisController = {
             // Inserir nota fiscal
             const notaResult = await new Promise((resolve, reject) => {
                 db.run(`
-                    INSERT INTO notas_fiscais (id_cliente, subtotal, impostos, total)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO notas_fiscais (
+                        id_cliente, 
+                        data_emissao,
+                        subtotal, 
+                        impostos, 
+                        total
+                    )
+                    VALUES (?, datetime('now', 'localtime'), ?, ?, ?)
                 `, [id_cliente, subtotal, valorImpostos, total], function(err) {
                     if (err) reject(err);
                     else resolve(this.lastID);
@@ -148,8 +155,11 @@ const notasFiscaisController = {
                 await new Promise((resolve, reject) => {
                     db.run(`
                         INSERT INTO itens_nota_fiscal (
-                            id_nota, id_produto, quantidade, 
-                            preco_unitario, subtotal_item
+                            id_nota, 
+                            id_produto, 
+                            quantidade, 
+                            preco_unitario, 
+                            subtotal_item
                         ) VALUES (?, ?, ?, ?, ?)
                     `, [
                         id_nota,
@@ -286,74 +296,82 @@ const notasFiscaisController = {
             // Cabeçalho
             drawRect(40, 40, 515, 80);
             doc.fontSize(20)
-               .font('Helvetica-Bold')
-               .text('NOTA FISCAL', 40, 55, { align: 'center' });
+                .font('Helvetica-Bold')
+                .text('NOTA FISCAL', 40, 55, { align: 'center' });
 
             // Número e Data
             doc.fontSize(10)
-               .font('Helvetica')
-               .text(`Nº: ${nota.id_nota.toString().padStart(6, '0')}`, 400, 55)
-               .text(`Emissão: ${new Date(nota.data_emissao).toLocaleDateString('pt-BR')}`, 400, 70)
-               .text(`Hora: ${new Date(nota.data_emissao).toLocaleTimeString('pt-BR')}`, 400, 85);
+                .font('Helvetica')
+                .text(`Nº: ${nota.id_nota.toString().padStart(6, '0')}`, 400, 55)
+                .text(`Emissão: ${new Date(nota.data_emissao).toLocaleDateString('pt-BR')}`, 400, 70)
+                .text(`Hora: ${new Date(nota.data_emissao).toLocaleTimeString('pt-BR')}`, 400, 85);
 
             // Dados do Emitente
             drawRect(40, 130, 515, 100);
             doc.fontSize(12)
-               .font('Helvetica-Bold')
-               .fillColor('#444')
-               .text('DADOS DO EMITENTE', 50, 140);
+                .font('Helvetica-Bold')
+                .fillColor('#444')
+                .text('DADOS DO EMITENTE', 50, 140);
+
+            const config = await new Promise((resolve, reject) => {
+                db.get('SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1', [], (err, config) => {
+                    if (err) reject(err);
+                    else resolve(config || {});
+                });
+            });
 
             doc.fontSize(10)
-               .font('Helvetica')
-               .text('EMPRESA EXEMPLO LTDA', 50, 160)
-               .text('CNPJ: 00.000.000/0000-00', 50, 175)
-               .text('Endereço: Rua Exemplo, 123 - Centro', 50, 190)
-               .text('CEP: 00000-000 - Cidade/UF', 50, 205)
-               .text('Telefone: (00) 0000-0000', 50, 220);
+                .font('Helvetica')
+                .text(config.razaoSocial || 'EMPRESA EXEMPLO LTDA', 50, 160)
+                .text(`CNPJ: ${config.cnpj || '00.000.000/0000-00'}`, 50, 175)
+                .text(`IE: ${config.ie || ''}`, 50, 190)
+                .text(`${config.rua}, ${config.numero} ${config.complemento || ''}`, 50, 205)
+                .text(`${config.bairro} - ${config.cidade}/${config.estado}`, 50, 220)
+                .text(`CEP: ${config.cep}`, 50, 235);
 
             // Dados do Cliente
             drawRect(40, 240, 515, 100);
             doc.fontSize(12)
-               .font('Helvetica-Bold')
-               .text('DADOS DO CLIENTE', 50, 250);
+                .font('Helvetica-Bold')
+                .text('DADOS DO CLIENTE', 50, 250);
 
             doc.fontSize(10)
-               .font('Helvetica')
-               .text(`Nome: ${nota.cliente_nome}`, 50, 270)
-               .text(`CPF/CNPJ: ${nota.cliente_cpf_cnpj}`, 50, 285)
-               .text(`Endereço: ${enderecoCliente}`, 50, 300, {
-                   width: 495,
-                   align: 'left'
-               });
+                .font('Helvetica')
+                .text(`Nome: ${nota.cliente_nome}`, 50, 270)
+                .text(`CPF/CNPJ: ${nota.cliente_cpf_cnpj}`, 50, 285)
+                .text(`Endereço: ${enderecoCliente}`, 50, 300, {
+                    width: 495,
+                    align: 'left'
+                });
 
             // Tabela de Itens
             drawRect(40, 350, 515, 30);
             doc.fillColor('#f6f6f6')
-               .rect(40, 350, 515, 30)
-               .fill()
-               .fillColor('#000');
+                .rect(40, 350, 515, 30)
+                .fill()
+                .fillColor('#000');
 
             // Cabeçalho da tabela
             doc.fontSize(10)
-               .font('Helvetica-Bold')
-               .text('Item', 50, 360)
-               .text('Descrição', 100, 360)
-               .text('Qtd', 360, 360)
-               .text('Vl. Unit.', 420, 360)
-               .text('Subtotal', 480, 360);
+                .font('Helvetica-Bold')
+                .text('Item', 50, 360)
+                .text('Descrição', 100, 360)
+                .text('Qtd', 360, 360)
+                .text('Vl. Unit.', 420, 360)
+                .text('Subtotal', 480, 360);
 
             // Itens
             let y = 380;
             nota.itens.forEach((item, index) => {
                 drawRect(40, y, 515, 25);
-                
+
                 doc.fontSize(9)
-                   .font('Helvetica')
-                   .text((index + 1).toString(), 50, y + 7)
-                   .text(item.produto_nome, 100, y + 7)
-                   .text(item.quantidade.toString(), 360, y + 7)
-                   .text(`R$ ${item.preco_unitario.toFixed(2)}`, 420, y + 7)
-                   .text(`R$ ${item.subtotal_item.toFixed(2)}`, 480, y + 7);
+                    .font('Helvetica')
+                    .text((index + 1).toString(), 50, y + 7)
+                    .text(item.produto_nome, 100, y + 7)
+                    .text(item.quantidade.toString(), 360, y + 7)
+                    .text(`R$ ${item.preco_unitario.toFixed(2)}`, 420, y + 7)
+                    .text(`R$ ${item.subtotal_item.toFixed(2)}`, 480, y + 7);
 
                 y += 25;
             });
@@ -362,39 +380,39 @@ const notasFiscaisController = {
             y += 20;
             drawRect(315, y, 240, 90);
             doc.fillColor('#f6f6f6')
-               .rect(315, y, 240, 30)
-               .fill()
-               .fillColor('#000');
+                .rect(315, y, 240, 30)
+                .fill()
+                .fillColor('#000');
 
             // Valores
             doc.fontSize(10)
-               .font('Helvetica-Bold')
-               .text('Subtotal:', 325, y + 10)
-               .font('Helvetica')
-               .text(`R$ ${nota.subtotal.toFixed(2)}`, 480, y + 10);
+                .font('Helvetica-Bold')
+                .text('Subtotal:', 325, y + 10)
+                .font('Helvetica')
+                .text(`R$ ${nota.subtotal.toFixed(2)}`, 480, y + 10);
 
             doc.font('Helvetica-Bold')
-               .text('Impostos:', 325, y + 40)
-               .font('Helvetica')
-               .text(`R$ ${nota.impostos.toFixed(2)}`, 480, y + 40);
+                .text('Impostos:', 325, y + 40)
+                .font('Helvetica')
+                .text(`R$ ${nota.impostos.toFixed(2)}`, 480, y + 40);
 
             doc.font('Helvetica-Bold')
-               .text('Total:', 325, y + 70)
-               .font('Helvetica')
-               .text(`R$ ${nota.total.toFixed(2)}`, 480, y + 70, {
-                   underline: true
-               });
+                .text('Total:', 325, y + 70)
+                .font('Helvetica')
+                .text(`R$ ${nota.total.toFixed(2)}`, 480, y + 70, {
+                    underline: true
+                });
 
             // Rodapé
             doc.fontSize(8)
-               .font('Helvetica')
-               .fillColor('#666')
-               .text(
-                   'Documento sem valor fiscal - Apenas para controle interno',
-                   40,
-                   doc.page.height - 50,
-                   { align: 'center' }
-               );
+                .font('Helvetica')
+                .fillColor('#666')
+                .text(
+                    'Documento sem valor fiscal - Apenas para controle interno',
+                    40,
+                    doc.page.height - 50,
+                    { align: 'center' }
+                );
 
             // Finalizar PDF
             doc.end();
@@ -445,7 +463,7 @@ const notasFiscaisController = {
 
             // Excluir nota
             await new Promise((resolve, reject) => {
-                db.run('DELETE FROM notas_fiscais WHERE id_nota = ?', [id], function(err) {
+                db.run('DELETE FROM notas_fiscais WHERE id_nota = ?', [id], function (err) {
                     if (err) reject(err);
                     else {
                         if (this.changes === 0) {
@@ -465,7 +483,7 @@ const notasFiscaisController = {
                 });
             });
 
-            res.json({ mensagem: 'Nota fiscal excluída com sucesso' });
+            res.json({ mensagem: 'Nota fiscal exclu��da com sucesso' });
 
         } catch (error) {
             // Reverter transação em caso de erro
