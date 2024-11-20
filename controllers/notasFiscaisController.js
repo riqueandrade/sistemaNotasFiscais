@@ -119,8 +119,8 @@ const notasFiscaisController = {
             const total = subtotal + valorImpostos;
 
             // Data atual no fuso horário brasileiro correto
-            const dataEmissao = new Date().toLocaleString('pt-BR', { 
-                timeZone: 'America/Sao_Paulo' 
+            const dataEmissao = new Date().toLocaleString('pt-BR', {
+                timeZone: 'America/Sao_Paulo'
             });
 
             // Iniciar transação
@@ -142,7 +142,7 @@ const notasFiscaisController = {
                         total
                     )
                     VALUES (?, datetime('now', 'localtime'), ?, ?, ?)
-                `, [id_cliente, subtotal, valorImpostos, total], function(err) {
+                `, [id_cliente, subtotal, valorImpostos, total], function (err) {
                     if (err) reject(err);
                     else resolve(this.lastID);
                 });
@@ -194,9 +194,9 @@ const notasFiscaisController = {
                 });
             });
 
-            res.status(201).json({ 
+            res.status(201).json({
                 id: id_nota,
-                mensagem: 'Nota fiscal emitida com sucesso' 
+                mensagem: 'Nota fiscal emitida com sucesso'
             });
 
         } catch (error) {
@@ -215,104 +215,12 @@ const notasFiscaisController = {
         const { id } = req.params;
 
         try {
-            // Buscar dados completos da nota
-            const nota = await new Promise((resolve, reject) => {
-                db.get(`
-                    SELECT 
-                        nf.*,
-                        c.nome as cliente_nome,
-                        c.cpf_cnpj as cliente_cpf_cnpj,
-                        c.rua,
-                        c.numero,
-                        c.complemento,
-                        c.bairro,
-                        c.cidade,
-                        c.estado,
-                        c.cep
-                    FROM notas_fiscais nf
-                    JOIN clientes c ON c.id_cliente = nf.id_cliente
-                    WHERE nf.id_nota = ?
-                `, [id], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                });
-            });
-
+            const nota = await buscarNotaCompleta(id);
             if (!nota) {
                 return res.status(404).json({ erro: 'Nota fiscal não encontrada' });
             }
 
-            // Buscar itens da nota
-            nota.itens = await new Promise((resolve, reject) => {
-                db.all(`
-                    SELECT 
-                        i.*,
-                        p.nome as produto_nome,
-                        p.descricao as produto_descricao
-                    FROM itens_nota_fiscal i
-                    JOIN produtos p ON p.id_produto = i.id_produto
-                    WHERE i.id_nota = ?
-                `, [id], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows);
-                });
-            });
-
-            // Formatar endereço do cliente
-            const enderecoCliente = [
-                nota.rua,
-                nota.numero,
-                nota.complemento,
-                nota.bairro,
-                `${nota.cidade}/${nota.estado}`,
-                nota.cep
-            ].filter(Boolean).join(', ');
-
-            // Criar documento PDF
-            const doc = new PDFDocument({
-                size: 'A4',
-                margins: {
-                    top: 40,
-                    bottom: 40,
-                    left: 40,
-                    right: 40
-                }
-            });
-
-            // Configurar resposta
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=nota_fiscal_${id}.pdf`);
-            doc.pipe(res);
-
-            // Funções auxiliares
-            const drawLine = (y) => {
-                doc.moveTo(40, y).lineTo(555, y).stroke();
-            };
-
-            const drawRect = (x, y, w, h) => {
-                doc.rect(x, y, w, h).stroke();
-            };
-
-            // Cabeçalho
-            drawRect(40, 40, 515, 80);
-            doc.fontSize(20)
-                .font('Helvetica-Bold')
-                .text('NOTA FISCAL', 40, 55, { align: 'center' });
-
-            // Número e Data
-            doc.fontSize(10)
-                .font('Helvetica')
-                .text(`Nº: ${nota.id_nota.toString().padStart(6, '0')}`, 400, 55)
-                .text(`Emissão: ${new Date(nota.data_emissao).toLocaleDateString('pt-BR')}`, 400, 70)
-                .text(`Hora: ${new Date(nota.data_emissao).toLocaleTimeString('pt-BR')}`, 400, 85);
-
-            // Dados do Emitente
-            drawRect(40, 130, 515, 100);
-            doc.fontSize(12)
-                .font('Helvetica-Bold')
-                .fillColor('#444')
-                .text('DADOS DO EMITENTE', 50, 140);
-
+            // Buscar configurações da empresa
             const config = await new Promise((resolve, reject) => {
                 db.get('SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1', [], (err, config) => {
                     if (err) reject(err);
@@ -320,99 +228,107 @@ const notasFiscaisController = {
                 });
             });
 
-            doc.fontSize(10)
-                .font('Helvetica')
-                .text(config.razaoSocial || 'EMPRESA EXEMPLO LTDA', 50, 160)
-                .text(`CNPJ: ${config.cnpj || '00.000.000/0000-00'}`, 50, 175)
-                .text(`IE: ${config.ie || ''}`, 50, 190)
-                .text(`${config.rua}, ${config.numero} ${config.complemento || ''}`, 50, 205)
-                .text(`${config.bairro} - ${config.cidade}/${config.estado}`, 50, 220)
-                .text(`CEP: ${config.cep}`, 50, 235);
-
-            // Dados do Cliente
-            drawRect(40, 240, 515, 100);
-            doc.fontSize(12)
-                .font('Helvetica-Bold')
-                .text('DADOS DO CLIENTE', 50, 250);
-
-            doc.fontSize(10)
-                .font('Helvetica')
-                .text(`Nome: ${nota.cliente_nome}`, 50, 270)
-                .text(`CPF/CNPJ: ${nota.cliente_cpf_cnpj}`, 50, 285)
-                .text(`Endereço: ${enderecoCliente}`, 50, 300, {
-                    width: 495,
-                    align: 'left'
-                });
-
-            // Tabela de Itens
-            drawRect(40, 350, 515, 30);
-            doc.fillColor('#f6f6f6')
-                .rect(40, 350, 515, 30)
-                .fill()
-                .fillColor('#000');
-
-            // Cabeçalho da tabela
-            doc.fontSize(10)
-                .font('Helvetica-Bold')
-                .text('Item', 50, 360)
-                .text('Descrição', 100, 360)
-                .text('Qtd', 360, 360)
-                .text('Vl. Unit.', 420, 360)
-                .text('Subtotal', 480, 360);
-
-            // Itens
-            let y = 380;
-            nota.itens.forEach((item, index) => {
-                drawRect(40, y, 515, 25);
-
-                doc.fontSize(9)
-                    .font('Helvetica')
-                    .text((index + 1).toString(), 50, y + 7)
-                    .text(item.produto_nome, 100, y + 7)
-                    .text(item.quantidade.toString(), 360, y + 7)
-                    .text(`R$ ${item.preco_unitario.toFixed(2)}`, 420, y + 7)
-                    .text(`R$ ${item.subtotal_item.toFixed(2)}`, 480, y + 7);
-
-                y += 25;
+            // Criar documento PDF
+            const doc = new PDFDocument({
+                size: 'A4',
+                margin: 40
             });
 
-            // Totais
-            y += 20;
-            drawRect(315, y, 240, 90);
-            doc.fillColor('#f6f6f6')
-                .rect(315, y, 240, 30)
-                .fill()
-                .fillColor('#000');
+            // Configurar resposta
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=nota_fiscal_${id}.pdf`);
+            doc.pipe(res);
 
-            // Valores
-            doc.fontSize(10)
+            // Cabeçalho
+            doc.fontSize(16)
                 .font('Helvetica-Bold')
-                .text('Subtotal:', 325, y + 10)
-                .font('Helvetica')
-                .text(`R$ ${nota.subtotal.toFixed(2)}`, 480, y + 10);
+                .text('NOTA FISCAL', { align: 'center' })
+                .fontSize(12)
+                .text('DOCUMENTO AUXILIAR', { align: 'center' })
+                .moveDown();
 
-            doc.font('Helvetica-Bold')
-                .text('Impostos:', 325, y + 40)
+            // Número e Data
+            doc.fontSize(10)
                 .font('Helvetica')
-                .text(`R$ ${nota.impostos.toFixed(2)}`, 480, y + 40);
+                .text(`Nº: ${nota.id_nota.toString().padStart(6, '0')}`)
+                .text(`Data: ${new Date(nota.data_emissao).toLocaleDateString('pt-BR')}`)
+                .text(`Hora: ${new Date(nota.data_emissao).toLocaleTimeString('pt-BR')}`)
+                .moveDown();
 
+            // Dados do Emitente
             doc.font('Helvetica-Bold')
-                .text('Total:', 325, y + 70)
+                .text('DADOS DO EMITENTE')
                 .font('Helvetica')
-                .text(`R$ ${nota.total.toFixed(2)}`, 480, y + 70, {
-                    underline: true
-                });
+                .text(config.razaoSocial || 'EMPRESA EXEMPLO LTDA')
+                .text(`CNPJ: ${formatarCpfCnpj(config.cnpj || '00000000000000')}`)
+                .text(`IE: ${config.ie || 'ISENTO'}`)
+                .text(`${config.rua}, ${config.numero} ${config.complemento || ''}`)
+                .text(`${config.bairro} - ${config.cidade}/${config.estado}`)
+                .text(`CEP: ${formatarCep(config.cep || '')}`)
+                .moveDown();
+
+            // Dados do Destinatário
+            doc.font('Helvetica-Bold')
+                .text('DADOS DO DESTINATÁRIO')
+                .font('Helvetica')
+                .text(`Nome/Razão Social: ${nota.cliente_nome}`)
+                .text(`CPF/CNPJ: ${formatarCpfCnpj(nota.cliente_cpf_cnpj)}`)
+                .text(`Endereço: ${[
+                    nota.cliente_rua,
+                    nota.cliente_numero,
+                    nota.cliente_bairro,
+                    nota.cliente_cidade,
+                    nota.cliente_estado,
+                    formatarCep(nota.cliente_cep)
+                ].filter(Boolean).join(', ')}`)
+                .moveDown();
+
+            // Tabela de Produtos
+            const headers = ['Cód.', 'Descrição', 'Qtd.', 'Valor Unit.', 'Total'];
+            const widths = [50, 240, 70, 90, 90];
+            let xPos = 40;
+            let yPos = doc.y;
+
+            // Cabeçalho da tabela
+            doc.font('Helvetica-Bold');
+            headers.forEach((header, i) => {
+                doc.text(header, xPos, yPos, { width: widths[i], align: 'left' });
+                xPos += widths[i];
+            });
+
+            // Linhas de produtos
+            yPos += 20;
+            doc.font('Helvetica');
+
+            for (const item of nota.itens) {
+                xPos = 40;
+                doc.text(item.id_produto.toString(), xPos, yPos, { width: widths[0] });
+                xPos += widths[0];
+                doc.text(item.produto_nome, xPos, yPos, { width: widths[1] });
+                xPos += widths[1];
+                doc.text(item.quantidade.toString(), xPos, yPos, { width: widths[2] });
+                xPos += widths[2];
+                doc.text(formatarMoeda(item.preco_unitario), xPos, yPos, { width: widths[3] });
+                xPos += widths[3];
+                doc.text(formatarMoeda(item.subtotal_item), xPos, yPos, { width: widths[4] });
+                yPos += 20;
+            }
+
+            // Totais
+            doc.moveDown()
+                .font('Helvetica-Bold')
+                .text(`Subtotal: ${formatarMoeda(nota.subtotal)}`, { align: 'right' })
+                .text(`Impostos: ${formatarMoeda(nota.impostos)}`, { align: 'right' })
+                .text(`Total: ${formatarMoeda(nota.total)}`, { align: 'right' });
 
             // Rodapé
-            doc.fontSize(8)
+            doc.moveDown(2)
+                .fontSize(8)
                 .font('Helvetica')
-                .fillColor('#666')
-                .text(
-                    'Documento sem valor fiscal - Apenas para controle interno',
-                    40,
-                    doc.page.height - 50,
-                    { align: 'center' }
-                );
+                .text('Documento sem valor fiscal - Apenas para controle interno', {
+                    align: 'center',
+                    color: 'grey'
+                });
 
             // Finalizar PDF
             doc.end();
@@ -483,7 +399,7 @@ const notasFiscaisController = {
                 });
             });
 
-            res.json({ mensagem: 'Nota fiscal exclu��da com sucesso' });
+            res.json({ mensagem: 'Nota fiscal excluida com sucesso' });
 
         } catch (error) {
             // Reverter transação em caso de erro
@@ -563,6 +479,25 @@ async function buscarNotaCompleta(id_nota) {
             }
         });
     });
+}
+
+// Função auxiliar para formatar CEP
+function formatarCep(cep) {
+    return cep.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+}
+
+// Função auxiliar para formatar CPF/CNPJ
+function formatarCpfCnpj(valor) {
+    valor = valor.replace(/\D/g, '');
+    if (valor.length === 11) {
+        return valor.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/g, '$1.$2.$3-$4');
+    }
+    return valor.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/g, '$1.$2.$3/$4-$5');
+}
+
+// Função auxiliar para formatar moeda
+function formatarMoeda(valor) {
+    return `R$ ${valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 }
 
 module.exports = notasFiscaisController; 
