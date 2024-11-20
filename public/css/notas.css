@@ -353,7 +353,7 @@ body {
     height: 38px; /* Mesma altura dos inputs */
 }
 
-/* Dropdown de ações para telas pequenas */
+/* Dropdown de ações */
 .dropdown-actions {
     display: none;
 }
@@ -361,10 +361,15 @@ body {
 .dropdown-actions .dropdown-menu {
     position: fixed;
     z-index: 1050;
-    min-width: auto;
+    min-width: 160px;
     padding: 0.5rem;
     margin: 0;
     transform: none !important;
+    background: white;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    right: 1rem !important;
 }
 
 .dropdown-actions .dropdown-item {
