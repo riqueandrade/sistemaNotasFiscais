@@ -1,16 +1,18 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
+// Remover o ?ssl=true da URL e colocar na configuração
+const dbUrl = process.env.DB_URL;
+
 // Configuração do pool com SSL e timeout ajustado
 const config = {
-    connectionString: process.env.DB_URL,
+    connectionString: dbUrl,
     ssl: {
         rejectUnauthorized: false // Necessário para conexão com Render
     },
     connectionTimeoutMillis: 10000, // 10 segundos
     idleTimeoutMillis: 30000,
-    max: 20, // Número máximo de conexões no pool
-    timezone: 'America/Sao_Paulo'
+    max: 20 // Número máximo de conexões no pool
 };
 
 const pool = new Pool(config);
@@ -59,7 +61,7 @@ async function initDatabase() {
 
         // Configurar timezone
         await client.query(`
-            ALTER DATABASE "${process.env.DB_URL.split('/').pop()}" 
+            ALTER DATABASE "${dbUrl.split('/').pop()}" 
             SET timezone TO 'America/Sao_Paulo'
         `);
         
