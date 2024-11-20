@@ -158,7 +158,9 @@ testConnection()
     })
     .catch(console.error);
 
+// Exportar o pool e outras funções
 module.exports = {
-    query: (text, params) => pool.query(text, params),
-    pool
+    pool,
+    testConnection,
+    initDatabase
 };

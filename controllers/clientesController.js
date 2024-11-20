@@ -1,37 +1,39 @@
-const db = require('../database');
+const { pool } = require('../database');
 
 const clientesController = {
     // Listar todos os clientes
-    listarClientes: (req, res) => {
-        const sql = 'SELECT * FROM clientes ORDER BY nome';
-        db.all(sql, [], (err, clientes) => {
-            if (err) {
-                console.error('Erro ao buscar clientes:', err);
-                return res.status(500).json({ erro: 'Erro interno do servidor' });
-            }
-            res.json(clientes);
-        });
+    listarClientes: async (req, res) => {
+        try {
+            const result = await pool.query('SELECT * FROM clientes ORDER BY nome');
+            res.json(result.rows);
+        } catch (err) {
+            console.error('Erro ao buscar clientes:', err);
+            res.status(500).json({ erro: 'Erro interno do servidor' });
+        }
     },
 
     // Buscar cliente por ID
-    buscarCliente: (req, res) => {
+    buscarCliente: async (req, res) => {
         const { id } = req.params;
-        const sql = 'SELECT * FROM clientes WHERE id_cliente = ?';
-        
-        db.get(sql, [id], (err, cliente) => {
-            if (err) {
-                console.error('Erro ao buscar cliente:', err);
-                return res.status(500).json({ erro: 'Erro interno do servidor' });
-            }
-            if (!cliente) {
+        try {
+            const result = await pool.query(
+                'SELECT * FROM clientes WHERE id_cliente = $1',
+                [id]
+            );
+            
+            if (result.rows.length === 0) {
                 return res.status(404).json({ erro: 'Cliente não encontrado' });
             }
-            res.json(cliente);
-        });
+            
+            res.json(result.rows[0]);
+        } catch (err) {
+            console.error('Erro ao buscar cliente:', err);
+            res.status(500).json({ erro: 'Erro interno do servidor' });
+        }
     },
 
     // Cadastrar novo cliente
-    cadastrarCliente: (req, res) => {
+    cadastrarCliente: async (req, res) => {
         const { 
             nome, 
             cpf_cnpj, 
@@ -46,60 +48,41 @@ const clientesController = {
             estado
         } = req.body;
 
-        // Verificar se CPF/CNPJ já existe
-        db.get('SELECT id_cliente FROM clientes WHERE cpf_cnpj = ?', [cpf_cnpj], (err, cliente) => {
-            if (err) {
-                console.error('Erro ao verificar CPF/CNPJ:', err);
-                return res.status(500).json({ erro: 'Erro interno do servidor' });
-            }
+        try {
+            // Verificar se CPF/CNPJ já existe
+            const checkResult = await pool.query(
+                'SELECT id_cliente FROM clientes WHERE cpf_cnpj = $1',
+                [cpf_cnpj]
+            );
             
-            if (cliente) {
+            if (checkResult.rows.length > 0) {
                 return res.status(400).json({ erro: 'CPF/CNPJ já cadastrado' });
             }
 
-            const sql = `
-                INSERT INTO clientes (
-                    nome, 
-                    cpf_cnpj, 
-                    telefone, 
-                    email, 
-                    cep,
-                    rua,
-                    numero,
-                    complemento,
-                    bairro,
-                    cidade,
-                    estado
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
+            const result = await pool.query(
+                `INSERT INTO clientes (
+                    nome, cpf_cnpj, telefone, email, cep, rua, numero,
+                    complemento, bairro, cidade, estado
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id_cliente`,
+                [
+                    nome, cpf_cnpj, telefone, email, cep, rua, numero,
+                    complemento, bairro, cidade, estado
+                ]
+            );
             
-            db.run(sql, [
-                nome, 
-                cpf_cnpj, 
-                telefone, 
-                email, 
-                cep,
-                rua,
-                numero,
-                complemento,
-                bairro,
-                cidade,
-                estado
-            ], function(err) {
-                if (err) {
-                    console.error('Erro ao cadastrar cliente:', err);
-                    return res.status(500).json({ erro: 'Erro ao cadastrar cliente' });
-                }
-                res.status(201).json({
-                    id: this.lastID,
-                    mensagem: 'Cliente cadastrado com sucesso'
-                });
+            res.status(201).json({
+                id: result.rows[0].id_cliente,
+                mensagem: 'Cliente cadastrado com sucesso'
             });
-        });
+        } catch (err) {
+            console.error('Erro ao cadastrar cliente:', err);
+            res.status(500).json({ erro: 'Erro ao cadastrar cliente' });
+        }
     },
 
     // Atualizar cliente
-    atualizarCliente: (req, res) => {
+    atualizarCliente: async (req, res) => {
         const { id } = req.params;
         const { 
             nome, 
@@ -115,88 +98,72 @@ const clientesController = {
             estado
         } = req.body;
         
-        // Verificar se CPF/CNPJ já existe em outro cliente
-        db.get('SELECT id_cliente FROM clientes WHERE cpf_cnpj = ? AND id_cliente != ?', 
-            [cpf_cnpj, id], (err, cliente) => {
-            if (err) {
-                console.error('Erro ao verificar CPF/CNPJ:', err);
-                return res.status(500).json({ erro: 'Erro interno do servidor' });
-            }
+        try {
+            // Verificar se CPF/CNPJ já existe em outro cliente
+            const checkResult = await pool.query(
+                'SELECT id_cliente FROM clientes WHERE cpf_cnpj = $1 AND id_cliente != $2',
+                [cpf_cnpj, id]
+            );
             
-            if (cliente) {
+            if (checkResult.rows.length > 0) {
                 return res.status(400).json({ erro: 'CPF/CNPJ já cadastrado para outro cliente' });
             }
 
-            const sql = `
-                UPDATE clientes 
-                SET nome = ?, 
-                    cpf_cnpj = ?, 
-                    telefone = ?, 
-                    email = ?, 
-                    cep = ?,
-                    rua = ?,
-                    numero = ?,
-                    complemento = ?,
-                    bairro = ?,
-                    cidade = ?,
-                    estado = ?
-                WHERE id_cliente = ?
-            `;
+            const result = await pool.query(
+                `UPDATE clientes 
+                SET nome = $1, cpf_cnpj = $2, telefone = $3, email = $4,
+                    cep = $5, rua = $6, numero = $7, complemento = $8,
+                    bairro = $9, cidade = $10, estado = $11
+                WHERE id_cliente = $12
+                RETURNING *`,
+                [
+                    nome, cpf_cnpj, telefone, email, cep, rua, numero,
+                    complemento, bairro, cidade, estado, id
+                ]
+            );
             
-            db.run(sql, [
-                nome, 
-                cpf_cnpj, 
-                telefone, 
-                email, 
-                cep,
-                rua,
-                numero,
-                complemento,
-                bairro,
-                cidade,
-                estado,
-                id
-            ], function(err) {
-                if (err) {
-                    console.error('Erro ao atualizar cliente:', err);
-                    return res.status(500).json({ erro: 'Erro ao atualizar cliente' });
-                }
-                if (this.changes === 0) {
-                    return res.status(404).json({ erro: 'Cliente não encontrado' });
-                }
-                res.json({ mensagem: 'Cliente atualizado com sucesso' });
-            });
-        });
+            if (result.rows.length === 0) {
+                return res.status(404).json({ erro: 'Cliente não encontrado' });
+            }
+            
+            res.json({ mensagem: 'Cliente atualizado com sucesso' });
+        } catch (err) {
+            console.error('Erro ao atualizar cliente:', err);
+            res.status(500).json({ erro: 'Erro ao atualizar cliente' });
+        }
     },
 
     // Excluir cliente
-    excluirCliente: (req, res) => {
+    excluirCliente: async (req, res) => {
         const { id } = req.params;
         
-        // Verificar se o cliente possui notas fiscais
-        db.get('SELECT COUNT(*) as count FROM notas_fiscais WHERE id_cliente = ?', [id], (err, result) => {
-            if (err) {
-                console.error('Erro ao verificar notas fiscais:', err);
-                return res.status(500).json({ erro: 'Erro interno do servidor' });
-            }
+        try {
+            // Verificar se o cliente possui notas fiscais
+            const checkResult = await pool.query(
+                'SELECT COUNT(*) as count FROM notas_fiscais WHERE id_cliente = $1',
+                [id]
+            );
             
-            if (result.count > 0) {
+            if (checkResult.rows[0].count > 0) {
                 return res.status(400).json({ 
                     erro: 'Não é possível excluir o cliente pois ele possui notas fiscais vinculadas' 
                 });
             }
 
-            db.run('DELETE FROM clientes WHERE id_cliente = ?', [id], function(err) {
-                if (err) {
-                    console.error('Erro ao excluir cliente:', err);
-                    return res.status(500).json({ erro: 'Erro ao excluir cliente' });
-                }
-                if (this.changes === 0) {
-                    return res.status(404).json({ erro: 'Cliente não encontrado' });
-                }
-                res.json({ mensagem: 'Cliente excluído com sucesso' });
-            });
-        });
+            const result = await pool.query(
+                'DELETE FROM clientes WHERE id_cliente = $1 RETURNING *',
+                [id]
+            );
+            
+            if (result.rows.length === 0) {
+                return res.status(404).json({ erro: 'Cliente não encontrado' });
+            }
+            
+            res.json({ mensagem: 'Cliente excluído com sucesso' });
+        } catch (err) {
+            console.error('Erro ao excluir cliente:', err);
+            res.status(500).json({ erro: 'Erro ao excluir cliente' });
+        }
     }
 };
 

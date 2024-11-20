@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const produtosController = require('../controllers/produtosController');
+const authMiddleware = require('../middleware/auth');
 
-// Verificar se todas as funções do controller existem
-if (!produtosController.listarProdutos) {
-    throw new Error('Função listarProdutos não encontrada no controller');
-}
+// Aplicar middleware de autenticação em todas as rotas
+router.use(authMiddleware);
 
 // Rotas
 router.get('/', produtosController.listarProdutos);

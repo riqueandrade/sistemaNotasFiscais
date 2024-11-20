@@ -151,10 +151,13 @@ function preencherSelectProdutos(selectElement = null) {
             
             // Adicionar opções
             produtosData.forEach(produto => {
+                // Converter preço para número
+                const precoVenda = parseFloat(produto.preco_venda);
+                
                 const option = document.createElement('option');
                 option.value = produto.id_produto;
-                option.textContent = `${produto.nome} - R$ ${produto.preco_venda.toFixed(2)}`;
-                option.dataset.preco = produto.preco_venda;
+                option.textContent = `${produto.nome} - R$ ${precoVenda.toFixed(2)}`;
+                option.dataset.preco = precoVenda;
                 option.dataset.estoque = produto.estoque;
                 select.appendChild(option);
             });
@@ -286,25 +289,32 @@ function renderizarNotas(notas) {
 function adicionarProduto() {
     const container = document.getElementById('produtosContainer');
     const novoProduto = document.createElement('div');
-    novoProduto.className = 'produto-item mb-2';
+    novoProduto.className = 'produto-item mb-3';
     novoProduto.innerHTML = `
-        <div class="row g-2">
-            <div class="col-md-5">
+        <!-- Primeira linha - apenas o select de produto -->
+        <div class="row mb-2">
+            <div class="col-12">
                 <select class="form-select produto-select" required>
                     <option value="">Selecione o produto...</option>
                 </select>
             </div>
-            <div class="col-md-2">
+        </div>
+        <!-- Segunda linha - demais campos -->
+        <div class="row g-2 align-items-center">
+            <div class="col-md-3">
                 <input type="number" class="form-control quantidade-input" 
-                       placeholder="Qtd" min="1" required onchange="calcularTotais()" onkeyup="calcularTotais()">
+                       placeholder="Qtd" min="1" required 
+                       onchange="calcularTotais()" onkeyup="calcularTotais()">
             </div>
-            <div class="col-md-2">
-                <input type="text" class="form-control preco-input" placeholder="Preço" readonly>
+            <div class="col-md-3">
+                <input type="text" class="form-control preco-input" 
+                       placeholder="Preço" readonly>
             </div>
-            <div class="col-md-2">
-                <input type="text" class="form-control subtotal-input" placeholder="Subtotal" readonly>
+            <div class="col-md-3">
+                <input type="text" class="form-control subtotal-input"
+                       placeholder="Subtotal" readonly>
             </div>
-            <div class="col-md-1">
+            <div class="col-md-3">
                 <button type="button" class="btn btn-danger btn-sm w-100"
                         onclick="removerProduto(this)">
                     <i class="fas fa-trash"></i>

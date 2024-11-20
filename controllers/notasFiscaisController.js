@@ -1,90 +1,85 @@
-const db = require('../database');
+const { pool } = require('../database');
 const PDFDocument = require('pdfkit');
-const fs = require('fs');
-const path = require('path');
 
 const notasFiscaisController = {
     // Listar todas as notas
-    listarNotas: (req, res) => {
-        const sql = `
-            SELECT 
-                nf.*, 
-                c.nome as cliente_nome,
-                c.cpf_cnpj as cliente_cpf_cnpj
-            FROM notas_fiscais nf
-            JOIN clientes c ON c.id_cliente = nf.id_cliente
-            ORDER BY nf.data_emissao DESC
-        `;
-
-        db.all(sql, [], async (err, notas) => {
-            if (err) {
-                console.error('Erro ao buscar notas:', err);
-                return res.status(500).json({ erro: 'Erro interno do servidor' });
-            }
+    listarNotas: async (req, res) => {
+        try {
+            const result = await pool.query(`
+                SELECT 
+                    nf.*, 
+                    c.nome as cliente_nome,
+                    c.cpf_cnpj as cliente_cpf_cnpj
+                FROM notas_fiscais nf
+                JOIN clientes c ON c.id_cliente = nf.id_cliente
+                ORDER BY nf.data_emissao DESC
+            `);
 
             // Buscar itens para cada nota
+            const notas = result.rows;
             for (let nota of notas) {
-                nota.itens = await buscarItensNota(nota.id_nota);
+                const itensResult = await pool.query(`
+                    SELECT 
+                        i.*,
+                        p.nome as produto_nome
+                    FROM itens_nota_fiscal i
+                    JOIN produtos p ON p.id_produto = i.id_produto
+                    WHERE i.id_nota = $1
+                `, [nota.id_nota]);
+
+                nota.itens = itensResult.rows;
             }
 
             res.json(notas);
-        });
+        } catch (err) {
+            console.error('Erro ao buscar notas:', err);
+            res.status(500).json({ erro: 'Erro interno do servidor' });
+        }
     },
 
-    // Buscar nota específica com todos os detalhes
+    // Buscar nota específica
     buscarNota: async (req, res) => {
         const { id } = req.params;
 
         try {
-            // Buscar dados da nota
-            const nota = await new Promise((resolve, reject) => {
-                db.get(`
-                    SELECT 
-                        nf.*,
-                        c.nome as cliente_nome,
-                        c.cpf_cnpj as cliente_cpf_cnpj,
-                        c.rua as cliente_rua,
-                        c.numero as cliente_numero,
-                        c.complemento as cliente_complemento,
-                        c.bairro as cliente_bairro,
-                        c.cidade as cliente_cidade,
-                        c.estado as cliente_estado,
-                        c.cep as cliente_cep
-                    FROM notas_fiscais nf
-                    JOIN clientes c ON c.id_cliente = nf.id_cliente
-                    WHERE nf.id_nota = ?
-                `, [id], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                });
-            });
+            const notaResult = await pool.query(`
+                SELECT 
+                    nf.*,
+                    c.nome as cliente_nome,
+                    c.cpf_cnpj as cliente_cpf_cnpj,
+                    c.rua as cliente_rua,
+                    c.numero as cliente_numero,
+                    c.complemento as cliente_complemento,
+                    c.bairro as cliente_bairro,
+                    c.cidade as cliente_cidade,
+                    c.estado as cliente_estado,
+                    c.cep as cliente_cep
+                FROM notas_fiscais nf
+                JOIN clientes c ON c.id_cliente = nf.id_cliente
+                WHERE nf.id_nota = $1
+            `, [id]);
 
-            if (!nota) {
+            if (notaResult.rows.length === 0) {
                 return res.status(404).json({ erro: 'Nota fiscal não encontrada' });
             }
 
+            const nota = notaResult.rows[0];
+
             // Buscar itens da nota
-            const itens = await new Promise((resolve, reject) => {
-                db.all(`
-                    SELECT 
-                        i.*,
-                        p.nome as produto_nome,
-                        p.descricao as produto_descricao
-                    FROM itens_nota_fiscal i
-                    JOIN produtos p ON p.id_produto = i.id_produto
-                    WHERE i.id_nota = ?
-                `, [id], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows);
-                });
-            });
+            const itensResult = await pool.query(`
+                SELECT 
+                    i.*,
+                    p.nome as produto_nome,
+                    p.descricao as produto_descricao
+                FROM itens_nota_fiscal i
+                JOIN produtos p ON p.id_produto = i.id_produto
+                WHERE i.id_nota = $1
+            `, [id]);
 
-            // Adicionar itens à nota
-            nota.itens = itens;
-
+            nota.itens = itensResult.rows;
             res.json(nota);
-        } catch (error) {
-            console.error('Erro ao buscar nota:', error);
+        } catch (err) {
+            console.error('Erro ao buscar nota:', err);
             res.status(500).json({ erro: 'Erro ao buscar nota fiscal' });
         }
     },
@@ -92,12 +87,19 @@ const notasFiscaisController = {
     // Emitir nova nota
     emitirNota: async (req, res) => {
         const { id_cliente, itens, impostos } = req.body;
+        const client = await pool.connect();
 
         try {
-            // Validar cliente
-            const cliente = await buscarCliente(id_cliente);
-            if (!cliente) {
-                return res.status(400).json({ erro: 'Cliente não encontrado' });
+            await client.query('BEGIN');
+
+            // Verificar cliente
+            const clienteResult = await client.query(
+                'SELECT * FROM clientes WHERE id_cliente = $1',
+                [id_cliente]
+            );
+
+            if (clienteResult.rows.length === 0) {
+                throw new Error('Cliente não encontrado');
             }
 
             // Calcular totais
@@ -106,107 +108,99 @@ const notasFiscaisController = {
                 subtotal += item.quantidade * item.preco_unitario;
             }
 
-            const config = await new Promise((resolve, reject) => {
-                db.get('SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1', [], (err, config) => {
-                    if (err) reject(err);
-                    else resolve(config);
-                });
-            });
-
-            const impostos = req.body.impostos || config?.aliquotaPadrao || 10;
-
             const valorImpostos = (subtotal * impostos) / 100;
             const total = subtotal + valorImpostos;
 
-            // Data atual no fuso horário brasileiro correto
-            const dataEmissao = new Date().toLocaleString('pt-BR', {
-                timeZone: 'America/Sao_Paulo'
-            });
-
-            // Iniciar transação
-            await new Promise((resolve, reject) => {
-                db.run('BEGIN TRANSACTION', err => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-
             // Inserir nota fiscal
-            const notaResult = await new Promise((resolve, reject) => {
-                db.run(`
-                    INSERT INTO notas_fiscais (
-                        id_cliente, 
-                        data_emissao,
-                        subtotal, 
-                        impostos, 
-                        total
-                    )
-                    VALUES (?, datetime('now', 'localtime'), ?, ?, ?)
-                `, [id_cliente, subtotal, valorImpostos, total], function (err) {
-                    if (err) reject(err);
-                    else resolve(this.lastID);
-                });
-            });
+            const notaResult = await client.query(`
+                INSERT INTO notas_fiscais (
+                    id_cliente, subtotal, impostos, total
+                ) VALUES ($1, $2, $3, $4)
+                RETURNING id_nota
+            `, [id_cliente, subtotal, valorImpostos, total]);
 
-            const id_nota = notaResult;
+            const id_nota = notaResult.rows[0].id_nota;
 
             // Inserir itens e atualizar estoque
             for (let item of itens) {
-                await new Promise((resolve, reject) => {
-                    db.run(`
-                        INSERT INTO itens_nota_fiscal (
-                            id_nota, 
-                            id_produto, 
-                            quantidade, 
-                            preco_unitario, 
-                            subtotal_item
-                        ) VALUES (?, ?, ?, ?, ?)
-                    `, [
-                        id_nota,
-                        item.id_produto,
-                        item.quantidade,
-                        item.preco_unitario,
-                        item.quantidade * item.preco_unitario
-                    ], err => {
-                        if (err) reject(err);
-                        else resolve();
-                    });
-                });
+                await client.query(`
+                    INSERT INTO itens_nota_fiscal (
+                        id_nota, id_produto, quantidade, 
+                        preco_unitario, subtotal_item
+                    ) VALUES ($1, $2, $3, $4, $5)
+                `, [
+                    id_nota,
+                    item.id_produto,
+                    item.quantidade,
+                    item.preco_unitario,
+                    item.quantidade * item.preco_unitario
+                ]);
 
                 // Atualizar estoque
-                await new Promise((resolve, reject) => {
-                    db.run(`
-                        UPDATE produtos 
-                        SET estoque = estoque - ? 
-                        WHERE id_produto = ?
-                    `, [item.quantidade, item.id_produto], err => {
-                        if (err) reject(err);
-                        else resolve();
-                    });
-                });
+                await client.query(`
+                    UPDATE produtos 
+                    SET estoque = estoque - $1 
+                    WHERE id_produto = $2
+                `, [item.quantidade, item.id_produto]);
             }
 
-            // Confirmar transação
-            await new Promise((resolve, reject) => {
-                db.run('COMMIT', err => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-
+            await client.query('COMMIT');
             res.status(201).json({
                 id: id_nota,
                 mensagem: 'Nota fiscal emitida com sucesso'
             });
 
-        } catch (error) {
-            // Reverter transação em caso de erro
-            await new Promise(resolve => {
-                db.run('ROLLBACK', () => resolve());
-            });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Erro ao emitir nota:', err);
+            res.status(500).json({ erro: err.message || 'Erro ao emitir nota fiscal' });
+        } finally {
+            client.release();
+        }
+    },
 
-            console.error('Erro ao emitir nota:', error);
-            res.status(500).json({ erro: 'Erro ao emitir nota fiscal' });
+    // Excluir (cancelar) nota
+    excluirNota: async (req, res) => {
+        const { id } = req.params;
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            // Buscar itens da nota
+            const itensResult = await client.query(
+                'SELECT * FROM itens_nota_fiscal WHERE id_nota = $1',
+                [id]
+            );
+
+            // Restaurar estoque
+            for (let item of itensResult.rows) {
+                await client.query(`
+                    UPDATE produtos 
+                    SET estoque = estoque + $1 
+                    WHERE id_produto = $2
+                `, [item.quantidade, item.id_produto]);
+            }
+
+            // Excluir nota e itens
+            const result = await client.query(
+                'DELETE FROM notas_fiscais WHERE id_nota = $1 RETURNING *',
+                [id]
+            );
+
+            if (result.rows.length === 0) {
+                throw new Error('Nota fiscal não encontrada');
+            }
+
+            await client.query('COMMIT');
+            res.json({ mensagem: 'Nota fiscal excluída com sucesso' });
+
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Erro ao excluir nota:', err);
+            res.status(500).json({ erro: err.message || 'Erro ao excluir nota fiscal' });
+        } finally {
+            client.release();
         }
     },
 
@@ -215,18 +209,48 @@ const notasFiscaisController = {
         const { id } = req.params;
 
         try {
-            const nota = await buscarNotaCompleta(id);
-            if (!nota) {
+            // Buscar dados da nota
+            const notaResult = await pool.query(`
+                SELECT 
+                    nf.*,
+                    c.nome as cliente_nome,
+                    c.cpf_cnpj as cliente_cpf_cnpj,
+                    c.rua as cliente_rua,
+                    c.numero as cliente_numero,
+                    c.complemento as cliente_complemento,
+                    c.bairro as cliente_bairro,
+                    c.cidade as cliente_cidade,
+                    c.estado as cliente_estado,
+                    c.cep as cliente_cep
+                FROM notas_fiscais nf
+                JOIN clientes c ON c.id_cliente = nf.id_cliente
+                WHERE nf.id_nota = $1
+            `, [id]);
+
+            if (notaResult.rows.length === 0) {
                 return res.status(404).json({ erro: 'Nota fiscal não encontrada' });
             }
 
+            const nota = notaResult.rows[0];
+
+            // Buscar itens da nota
+            const itensResult = await pool.query(`
+                SELECT 
+                    i.*,
+                    p.nome as produto_nome,
+                    p.descricao as produto_descricao
+                FROM itens_nota_fiscal i
+                JOIN produtos p ON p.id_produto = i.id_produto
+                WHERE i.id_nota = $1
+            `, [id]);
+
+            nota.itens = itensResult.rows;
+
             // Buscar configurações da empresa
-            const config = await new Promise((resolve, reject) => {
-                db.get('SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1', [], (err, config) => {
-                    if (err) reject(err);
-                    else resolve(config || {});
-                });
-            });
+            const configResult = await pool.query(
+                'SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1'
+            );
+            const config = configResult.rows[0] || {};
 
             // Criar documento PDF
             const doc = new PDFDocument({
@@ -333,160 +357,18 @@ const notasFiscaisController = {
             // Finalizar PDF
             doc.end();
 
-        } catch (error) {
-            console.error('Erro ao gerar PDF:', error);
+        } catch (err) {
+            console.error('Erro ao gerar PDF:', err);
             res.status(500).json({ erro: 'Erro ao gerar PDF da nota fiscal' });
-        }
-    },
-
-    // Excluir (cancelar) nota
-    excluirNota: async (req, res) => {
-        const { id } = req.params;
-
-        try {
-            // Iniciar transação
-            await new Promise((resolve, reject) => {
-                db.run('BEGIN TRANSACTION', err => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-
-            // Buscar itens da nota
-            const itens = await buscarItensNota(id);
-
-            // Restaurar estoque
-            for (let item of itens) {
-                await new Promise((resolve, reject) => {
-                    db.run(`
-                        UPDATE produtos 
-                        SET estoque = estoque + ? 
-                        WHERE id_produto = ?
-                    `, [item.quantidade, item.id_produto], err => {
-                        if (err) reject(err);
-                        else resolve();
-                    });
-                });
-            }
-
-            // Excluir itens da nota
-            await new Promise((resolve, reject) => {
-                db.run('DELETE FROM itens_nota_fiscal WHERE id_nota = ?', [id], err => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-
-            // Excluir nota
-            await new Promise((resolve, reject) => {
-                db.run('DELETE FROM notas_fiscais WHERE id_nota = ?', [id], function (err) {
-                    if (err) reject(err);
-                    else {
-                        if (this.changes === 0) {
-                            reject(new Error('Nota fiscal não encontrada'));
-                        } else {
-                            resolve();
-                        }
-                    }
-                });
-            });
-
-            // Confirmar transação
-            await new Promise((resolve, reject) => {
-                db.run('COMMIT', err => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-
-            res.json({ mensagem: 'Nota fiscal excluida com sucesso' });
-
-        } catch (error) {
-            // Reverter transação em caso de erro
-            await new Promise(resolve => {
-                db.run('ROLLBACK', () => resolve());
-            });
-
-            if (error.message === 'Nota fiscal não encontrada') {
-                return res.status(404).json({ erro: error.message });
-            }
-
-            console.error('Erro ao excluir nota:', error);
-            res.status(500).json({ erro: 'Erro ao excluir nota fiscal' });
         }
     }
 };
 
 // Funções auxiliares
-async function buscarItensNota(id_nota) {
-    return new Promise((resolve, reject) => {
-        db.all(`
-            SELECT 
-                i.*,
-                p.nome as produto_nome
-            FROM itens_nota_fiscal i
-            JOIN produtos p ON p.id_produto = i.id_produto
-            WHERE i.id_nota = ?
-        `, [id_nota], (err, itens) => {
-            if (err) reject(err);
-            else resolve(itens);
-        });
-    });
-}
-
-async function buscarCliente(id_cliente) {
-    return new Promise((resolve, reject) => {
-        db.get('SELECT * FROM clientes WHERE id_cliente = ?', [id_cliente], (err, cliente) => {
-            if (err) reject(err);
-            else resolve(cliente);
-        });
-    });
-}
-
-async function buscarProduto(id_produto) {
-    return new Promise((resolve, reject) => {
-        db.get('SELECT * FROM produtos WHERE id_produto = ?', [id_produto], (err, produto) => {
-            if (err) reject(err);
-            else resolve(produto);
-        });
-    });
-}
-
-async function buscarNotaCompleta(id_nota) {
-    return new Promise((resolve, reject) => {
-        db.get(`
-            SELECT 
-                nf.*, 
-                c.nome as cliente_nome,
-                c.cpf_cnpj as cliente_cpf_cnpj,
-                c.rua as cliente_rua,
-                c.numero as cliente_numero,
-                c.complemento as cliente_complemento,
-                c.bairro as cliente_bairro,
-                c.cidade as cliente_cidade,
-                c.estado as cliente_estado,
-                c.cep as cliente_cep
-            FROM notas_fiscais nf
-            JOIN clientes c ON c.id_cliente = nf.id_cliente
-            WHERE nf.id_nota = ?
-        `, [id_nota], async (err, nota) => {
-            if (err) reject(err);
-            else {
-                if (nota) {
-                    nota.itens = await buscarItensNota(id_nota);
-                }
-                resolve(nota);
-            }
-        });
-    });
-}
-
-// Função auxiliar para formatar CEP
 function formatarCep(cep) {
     return cep.replace(/^(\d{5})(\d{3})$/, '$1-$2');
 }
 
-// Função auxiliar para formatar CPF/CNPJ
 function formatarCpfCnpj(valor) {
     valor = valor.replace(/\D/g, '');
     if (valor.length === 11) {
@@ -495,7 +377,6 @@ function formatarCpfCnpj(valor) {
     return valor.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/g, '$1.$2.$3/$4-$5');
 }
 
-// Função auxiliar para formatar moeda
 function formatarMoeda(valor) {
     return `R$ ${valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 }

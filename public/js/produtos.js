@@ -5,6 +5,13 @@ let produtoModal;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
+    // Verificar autenticação
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/html/login.html';
+        return;
+    }
+
     // Inicializar modal do Bootstrap
     produtoModal = new bootstrap.Modal(document.getElementById('produtoModal'));
     
@@ -26,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Funções de API
 async function carregarProdutos() {
     try {
+        console.log('Carregando produtos...'); // Debug
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_URL}/produtos`, {
             headers: {
@@ -41,9 +49,12 @@ async function carregarProdutos() {
             throw new Error('Erro ao carregar produtos');
         }
 
-        produtosData = await response.json();
+        const data = await response.json();
+        console.log('Produtos carregados:', data); // Debug
+        produtosData = data;
         renderizarProdutos(produtosData);
     } catch (error) {
+        console.error('Erro detalhado:', error); // Debug
         mostrarAlerta('Erro ao carregar produtos', 'danger');
     }
 }
@@ -133,31 +144,36 @@ function renderizarProdutos(produtos) {
     }
 
     emptyMessage.style.display = 'none';
-    tbody.innerHTML = produtos.map(produto => `
-        <tr>
-            <td>${produto.id_produto}</td>
-            <td>${produto.nome}</td>
-            <td>
-                <span class="badge bg-${produto.categoria === 'Celular' ? 'primary' : 'secondary'}">
-                    ${produto.categoria}
-                </span>
-            </td>
-            <td>R$ ${produto.preco_venda.toFixed(2)}</td>
-            <td>
-                <span class="badge bg-${produto.estoque > 0 ? 'success' : 'danger'}">
-                    ${produto.estoque}
-                </span>
-            </td>
-            <td>
-                <button class="btn btn-action btn-edit me-1" onclick="editarProduto(${produto.id_produto})">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-action btn-delete" onclick="excluirProduto(${produto.id_produto})">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = produtos.map(produto => {
+        // Converter string para número
+        const precoVenda = parseFloat(produto.preco_venda);
+        
+        return `
+            <tr>
+                <td>${produto.id_produto}</td>
+                <td>${produto.nome}</td>
+                <td>
+                    <span class="badge bg-${produto.categoria === 'Celular' ? 'primary' : 'secondary'}">
+                        ${produto.categoria}
+                    </span>
+                </td>
+                <td>R$ ${precoVenda.toFixed(2)}</td>
+                <td>
+                    <span class="badge bg-${produto.estoque > 0 ? 'success' : 'danger'}">
+                        ${produto.estoque}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-action btn-edit me-1" onclick="editarProduto(${produto.id_produto})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-action btn-delete" onclick="excluirProduto(${produto.id_produto})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 function filtrarProdutos() {

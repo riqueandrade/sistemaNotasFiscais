@@ -149,28 +149,32 @@
                         <div class="mb-3">
                             <label class="form-label">Produtos</label>
                             <div id="produtosContainer">
-                                <div class="produto-item mb-2">
-                                    <div class="row g-2 align-items-center">
-                                        <div class="col-md-4">
+                                <div class="produto-item mb-3">
+                                    <!-- Primeira linha - apenas o select de produto -->
+                                    <div class="row mb-2">
+                                        <div class="col-12">
                                             <select class="form-select produto-select" required>
                                                 <option value="">Selecione o produto...</option>
                                             </select>
                                         </div>
-                                        <div class="col-md-2">
-                                            <input type="number" class="form-control quantidade-input" placeholder="Qtd"
-                                                min="1" required>
+                                    </div>
+                                    <!-- Segunda linha - demais campos -->
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-md-3">
+                                            <input type="number" class="form-control quantidade-input" 
+                                                   placeholder="Qtd" min="1" required>
                                         </div>
-                                        <div class="col-md-2">
-                                            <input type="text" class="form-control preco-input" placeholder="Preço"
-                                                readonly>
+                                        <div class="col-md-3">
+                                            <input type="text" class="form-control preco-input" 
+                                                   placeholder="Preço" readonly>
                                         </div>
                                         <div class="col-md-3">
                                             <input type="text" class="form-control subtotal-input"
-                                                placeholder="Subtotal" readonly>
+                                                   placeholder="Subtotal" readonly>
                                         </div>
-                                        <div class="col-md-1">
+                                        <div class="col-md-3">
                                             <button type="button" class="btn btn-danger btn-sm w-100"
-                                                onclick="removerProduto(this)">
+                                                    onclick="removerProduto(this)">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -178,7 +182,7 @@
                                 </div>
                             </div>
                             <button type="button" class="btn btn-outline-primary btn-sm mt-2"
-                                onclick="adicionarProduto()">
+                                    onclick="adicionarProduto()">
                                 <i class="fas fa-plus me-2"></i>Adicionar Produto
                             </button>
                         </div>

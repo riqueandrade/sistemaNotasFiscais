@@ -1,19 +1,21 @@
-const db = require('../database');
+const { pool } = require('../database');
 
 const configuracoesController = {
     // Buscar configurações
-    buscarConfiguracoes: (req, res) => {
-        db.get('SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1', [], (err, config) => {
-            if (err) {
-                console.error('Erro ao buscar configurações:', err);
-                return res.status(500).json({ erro: 'Erro interno do servidor' });
-            }
-            res.json(config || {});
-        });
+    buscarConfiguracoes: async (req, res) => {
+        try {
+            const result = await pool.query(
+                'SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1'
+            );
+            res.json(result.rows[0] || {});
+        } catch (err) {
+            console.error('Erro ao buscar configurações:', err);
+            res.status(500).json({ erro: 'Erro interno do servidor' });
+        }
     },
 
     // Salvar configurações
-    salvarConfiguracoes: (req, res) => {
+    salvarConfiguracoes: async (req, res) => {
         const {
             aliquotaPadrao,
             icms,
@@ -29,36 +31,37 @@ const configuracoesController = {
             estado
         } = req.body;
 
-        const sql = `
-            INSERT INTO configuracoes (
-                aliquotaPadrao, icms, razaoSocial, cnpj, ie,
-                cep, rua, numero, complemento, bairro, cidade, estado
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
+        try {
+            const result = await pool.query(
+                `INSERT INTO configuracoes (
+                    aliquotaPadrao, icms, razaoSocial, cnpj, ie,
+                    cep, rua, numero, complemento, bairro, cidade, estado
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                RETURNING id`,
+                [
+                    aliquotaPadrao,
+                    icms,
+                    razaoSocial,
+                    cnpj,
+                    ie,
+                    cep,
+                    rua,
+                    numero,
+                    complemento,
+                    bairro,
+                    cidade,
+                    estado
+                ]
+            );
 
-        db.run(sql, [
-            aliquotaPadrao,
-            icms,
-            razaoSocial,
-            cnpj,
-            ie,
-            cep,
-            rua,
-            numero,
-            complemento,
-            bairro,
-            cidade,
-            estado
-        ], function(err) {
-            if (err) {
-                console.error('Erro ao salvar configurações:', err);
-                return res.status(500).json({ erro: 'Erro ao salvar configurações' });
-            }
             res.json({ 
                 mensagem: 'Configurações salvas com sucesso',
-                id: this.lastID 
+                id: result.rows[0].id 
             });
-        });
+        } catch (err) {
+            console.error('Erro ao salvar configurações:', err);
+            res.status(500).json({ erro: 'Erro ao salvar configurações' });
+        }
     }
 };
 

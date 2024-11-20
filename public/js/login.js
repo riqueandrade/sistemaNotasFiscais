@@ -38,56 +38,55 @@ async function handleLogin(event) {
     const btnText = submitButton.querySelector('.btn-text');
     const btnLoader = submitButton.querySelector('.btn-loader');
     
-    // Salvar email se "Lembrar-me" estiver marcado
     if (lembrar) {
         localStorage.setItem('savedEmail', email);
     } else {
         localStorage.removeItem('savedEmail');
     }
 
-    // Mostrar loader
     btnText.classList.add('d-none');
     btnLoader.classList.remove('d-none');
     submitButton.disabled = true;
     
     try {
+        console.log('Tentando login com:', { email });
+        
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ email, senha }),
-            credentials: 'include' // Importante para cookies
+            credentials: 'include'
         });
 
         const data = await response.json();
+        console.log('Resposta do servidor:', data);
 
-        if (response.ok) {
-            // Salvar dados do usuário
-            localStorage.setItem('usuario', JSON.stringify(data.usuario));
-            
-            // Animação de sucesso antes do redirecionamento
-            submitButton.classList.remove('btn-primary');
-            submitButton.classList.add('btn-success');
-            btnLoader.innerHTML = '<i class="fas fa-check"></i>';
-            
-            setTimeout(() => {
-                window.location.href = '/html/produtos.html';
-            }, 1000);
-        } else {
+        if (!response.ok) {
             throw new Error(data.erro || 'Erro ao fazer login');
         }
+
+        // Salvar dados do usuário
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('usuario', JSON.stringify(data.usuario));
+        
+        submitButton.classList.remove('btn-primary');
+        submitButton.classList.add('btn-success');
+        btnLoader.innerHTML = '<i class="fas fa-check"></i>';
+        
+        setTimeout(() => {
+            window.location.href = '/html/produtos.html';
+        }, 1000);
     } catch (error) {
-        console.error('Erro:', error);
+        console.error('Erro detalhado:', error);
         errorMessage.textContent = error.message;
         errorMessage.style.display = 'block';
         
-        // Restaurar botão
         btnText.classList.remove('d-none');
         btnLoader.classList.add('d-none');
         submitButton.disabled = false;
         
-        // Animar erro
         submitButton.classList.add('shake');
         setTimeout(() => submitButton.classList.remove('shake'), 500);
     }
