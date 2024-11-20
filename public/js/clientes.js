@@ -50,7 +50,7 @@ function renderizarClientes(clientes) {
             <td class="endereco-cell" title="${formatarEnderecoCompleto(cliente)}">
                 ${formatarEnderecoCompleto(cliente)}
             </td>
-            <td>
+            <td class="actions-cell">
                 <button class="btn btn-action btn-view me-1" onclick="visualizarCliente(${cliente.id_cliente})">
                     <i class="fas fa-eye"></i>
                 </button>
@@ -60,6 +60,32 @@ function renderizarClientes(clientes) {
                 <button class="btn btn-action btn-delete" onclick="excluirCliente(${cliente.id_cliente})">
                     <i class="fas fa-trash"></i>
                 </button>
+
+                <div class="dropdown dropdown-actions">
+                    <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="visualizarCliente(${cliente.id_cliente})">
+                                <i class="fas fa-eye"></i>
+                                Visualizar
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="editarCliente(${cliente.id_cliente})">
+                                <i class="fas fa-edit"></i>
+                                Editar
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="#" onclick="excluirCliente(${cliente.id_cliente})">
+                                <i class="fas fa-trash"></i>
+                                Excluir
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </td>
         </tr>
     `).join('');

@@ -113,4 +113,146 @@ body {
     .btn-action {
         padding: 0.375rem 0.75rem;
     }
+}
+
+/* Extra grande (≥1200px) */
+@media (min-width: 1200px) {
+    .container {
+        max-width: 1140px;
+    }
+    
+    .table td, .table th {
+        padding: 1rem;
+    }
+}
+
+/* Grande (992px - 1199px) */
+@media (max-width: 1199px) {
+    .container {
+        max-width: 960px;
+    }
+}
+
+/* Médio (768px - 991px) */
+@media (max-width: 991px) {
+    .container {
+        max-width: 720px;
+        padding: 1rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .table td, .table th {
+        padding: 0.75rem;
+    }
+}
+
+/* Pequeno (576px - 767px) */
+@media (max-width: 767px) {
+    .container {
+        max-width: 540px;
+        padding: 0.75rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-action {
+        padding: 0.375rem;
+    }
+    
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .btn-primary {
+        width: 100%;
+    }
+    
+    .row.g-3 {
+        flex-direction: column;
+    }
+    
+    .col-md-3, .col-md-4 {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Extra pequeno (<576px) */
+@media (max-width: 575px) {
+    .container {
+        padding: 0.5rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    .card-body {
+        padding: 0.75rem;
+    }
+    
+    .table {
+        font-size: 0.8rem;
+    }
+    
+    .table td, .table th {
+        padding: 0.5rem;
+    }
+    
+    .btn-action {
+        padding: 0.25rem;
+        font-size: 0.8rem;
+    }
+    
+    .modal-body {
+        padding: 0.75rem;
+    }
+    
+    .form-label {
+        font-size: 0.875rem;
+    }
+    
+    .form-control {
+        font-size: 0.875rem;
+        padding: 0.4rem 0.5rem;
+    }
+}
+
+/* Dropdown de ações para telas pequenas */
+.dropdown-actions {
+    display: none;
+}
+
+.dropdown-actions .dropdown-menu {
+    min-width: auto;
+    padding: 0.5rem;
+}
+
+.dropdown-actions .dropdown-item {
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Responsividade para ações */
+@media (max-width: 767px) {
+    .btn-action {
+        display: none;
+    }
+    
+    .dropdown-actions {
+        display: block;
+    }
+    
+    td.actions-cell {
+        width: 46px;
+    }
 } 

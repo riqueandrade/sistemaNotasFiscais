@@ -170,12 +170,96 @@ body {
 }
 
 /* Responsividade */
-@media (max-width: 480px) {
+/* Extra grande (≥1200px) */
+@media (min-width: 1200px) {
     .login-card {
-        padding: 1.5rem;
+        max-width: 420px;
+        padding: 2.5rem;
     }
+}
 
+/* Grande (992px - 1199px) */
+@media (max-width: 1199px) {
+    .login-card {
+        max-width: 400px;
+        padding: 2rem;
+    }
+}
+
+/* Médio (768px - 991px) */
+@media (max-width: 991px) {
+    .login-card {
+        max-width: 380px;
+        padding: 1.75rem;
+    }
+    
+    .logo-icon {
+        width: 70px;
+        height: 70px;
+        font-size: 2.25rem;
+    }
+}
+
+/* Pequeno (576px - 767px) */
+@media (max-width: 767px) {
+    .login-card {
+        max-width: 100%;
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    
+    .logo-icon {
+        width: 60px;
+        height: 60px;
+        font-size: 2rem;
+    }
+    
     .login-header h2 {
         font-size: 1.25rem;
+    }
+}
+
+/* Extra pequeno (<576px) */
+@media (max-width: 575px) {
+    body {
+        padding: 1rem;
+    }
+    
+    .login-card {
+        padding: 1.25rem;
+        margin: 0;
+    }
+    
+    .logo-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .login-header h2 {
+        font-size: 1.1rem;
+    }
+    
+    .login-header p {
+        font-size: 0.9rem;
+    }
+    
+    .form-control {
+        font-size: 0.9rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .btn {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .form-check-label, .forgot-password {
+        font-size: 0.8rem;
+    }
+    
+    .login-footer {
+        font-size: 0.75rem;
     }
 } 

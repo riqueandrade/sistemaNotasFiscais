@@ -238,7 +238,8 @@ function renderizarNotas(notas) {
                 <td>R$ ${subtotal.toFixed(2)}</td>
                 <td>R$ ${impostos.toFixed(2)}</td>
                 <td>R$ ${total.toFixed(2)}</td>
-                <td>
+                <td class="actions-cell">
+                    <!-- Botões normais -->
                     <button class="btn btn-action btn-view me-1" onclick="visualizarNota(${nota.id_nota})">
                         <i class="fas fa-eye"></i>
                     </button>
@@ -248,6 +249,33 @@ function renderizarNotas(notas) {
                     <button class="btn btn-action btn-delete" onclick="excluirNota(${nota.id_nota})">
                         <i class="fas fa-trash"></i>
                     </button>
+
+                    <!-- Dropdown para mobile -->
+                    <div class="dropdown dropdown-actions">
+                        <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="visualizarNota(${nota.id_nota})">
+                                    <i class="fas fa-eye"></i>
+                                    Visualizar
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="imprimirNota(${nota.id_nota})">
+                                    <i class="fas fa-print"></i>
+                                    Imprimir
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="#" onclick="excluirNota(${nota.id_nota})">
+                                    <i class="fas fa-trash"></i>
+                                    Excluir
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </td>
             </tr>
         `;

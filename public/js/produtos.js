@@ -147,7 +147,6 @@ function renderizarProdutos(produtos) {
 
     emptyMessage.style.display = 'none';
     tbody.innerHTML = produtos.map(produto => {
-        // Converter string para número
         const precoVenda = parseFloat(produto.preco_venda);
         
         return `
@@ -165,13 +164,33 @@ function renderizarProdutos(produtos) {
                         ${produto.estoque}
                     </span>
                 </td>
-                <td>
+                <td class="actions-cell">
                     <button class="btn btn-action btn-edit me-1" onclick="editarProduto(${produto.id_produto})">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-action btn-delete" onclick="excluirProduto(${produto.id_produto})">
                         <i class="fas fa-trash"></i>
                     </button>
+
+                    <div class="dropdown dropdown-actions">
+                        <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="editarProduto(${produto.id_produto})">
+                                    <i class="fas fa-edit"></i>
+                                    Editar
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="#" onclick="excluirProduto(${produto.id_produto})">
+                                    <i class="fas fa-trash"></i>
+                                    Excluir
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </td>
             </tr>
         `;
