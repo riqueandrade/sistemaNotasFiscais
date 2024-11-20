@@ -229,14 +229,74 @@ body {
     }
 }
 
+/* Dropdown de ações */
+.dropdown-actions .dropdown-menu {
+    position: fixed;
+    z-index: 1050;
+    min-width: 160px;
+    padding: 0.5rem;
+    margin: 0;
+    transform: none !important;
+    background: white;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    right: 1rem !important;
+}
+
+.dropdown-actions .dropdown-item {
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-color);
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+}
+
+.dropdown-actions .dropdown-item:hover {
+    background-color: #f3f4f6;
+    transform: translateX(2px);
+}
+
+.dropdown-actions .dropdown-item i {
+    width: 16px;
+    text-align: center;
+}
+
+.dropdown-actions .dropdown-item.text-danger:hover {
+    background-color: #fee2e2;
+}
+
+/* Botão do dropdown */
+.dropdown-actions .dropdown-toggle {
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border-color);
+    background: white;
+}
+
+.dropdown-actions .dropdown-toggle:hover {
+    background-color: #f3f4f6;
+}
+
+.dropdown-actions .dropdown-toggle:focus {
+    box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+}
+
 /* Dropdown de ações para telas pequenas */
 .dropdown-actions {
     display: none;
 }
 
 .dropdown-actions .dropdown-menu {
+    position: fixed;
+    z-index: 1050;
     min-width: auto;
     padding: 0.5rem;
+    margin: 0;
+    transform: none !important;
 }
 
 .dropdown-actions .dropdown-item {
