@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/css/clientes.css">
 </head>
+
 <body>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark">
@@ -36,14 +38,39 @@
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                            data-bs-toggle="dropdown">
                             <i class="fas fa-user-circle me-1"></i>
                             <span id="userName">Usuário</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="#" onclick="logout()">
-                                <i class="fas fa-sign-out-alt me-2"></i>Sair
-                            </a></li>
+                            <li>
+                                <span class="dropdown-item-text">
+                                    <small class="text-muted">Logado como</small><br>
+                                    <strong id="userEmail">email@exemplo.com</strong>
+                                </span>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="/html/dados_notas.html">
+                                    <i class="fas fa-cog me-2"></i>Configurações
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="alterarSenha()">
+                                    <i class="fas fa-key me-2"></i>Alterar Senha
+                                </a>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="#" onclick="logout()">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Sair
+                                </a>
+                            </li>
                         </ul>
                     </li>
                 </ul>
@@ -69,7 +96,8 @@
                             <span class="input-group-text">
                                 <i class="fas fa-search"></i>
                             </span>
-                            <input type="text" class="form-control" id="searchInput" placeholder="Buscar por nome, CPF/CNPJ...">
+                            <input type="text" class="form-control" id="searchInput"
+                                placeholder="Buscar por nome, CPF/CNPJ...">
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -230,4 +258,5 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.8/jquery.inputmask.min.js"></script>
     <script src="/js/clientes.js"></script>
 </body>
-</html> 
+
+</html>

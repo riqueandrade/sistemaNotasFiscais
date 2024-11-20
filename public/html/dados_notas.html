@@ -46,9 +46,33 @@
                             <span id="userName">Usuário</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="#" onclick="logout()">
+                            <li>
+                                <span class="dropdown-item-text">
+                                    <small class="text-muted">Logado como</small><br>
+                                    <strong id="userEmail">email@exemplo.com</strong>
+                                </span>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="/html/dados_notas.html">
+                                    <i class="fas fa-cog me-2"></i>Configurações
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="alterarSenha()">
+                                    <i class="fas fa-key me-2"></i>Alterar Senha
+                                </a>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="#" onclick="logout()">
                                     <i class="fas fa-sign-out-alt me-2"></i>Sair
-                                </a></li>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                 </ul>

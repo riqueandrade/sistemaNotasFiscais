@@ -42,7 +42,7 @@ app.get('*', (req, res) => {
 
 // Tratamento de erros
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error('Erro:', err);
     res.status(500).json({ erro: 'Erro interno do servidor' });
 });
 

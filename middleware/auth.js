@@ -11,7 +11,19 @@ async function authMiddleware(req, res, next) {
 
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            req.usuario = decoded;
+            console.log('Token decodificado:', decoded);
+
+            if (!decoded.id) {
+                console.error('Token não contém ID do usuário:', decoded);
+                return res.status(401).json({ erro: 'Token inválido' });
+            }
+
+            req.usuario = {
+                id: decoded.id,
+                email: decoded.email,
+                cargo: decoded.cargo
+            };
+
             next();
         } catch (error) {
             console.error('Erro na verificação do token:', error);

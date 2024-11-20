@@ -317,3 +317,147 @@ window.salvarCliente = async function() {
         btnSalvar.disabled = false;
     }
 }
+
+// Adicionar o modal de alteração de senha no HTML
+document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal fade" id="senhaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Alterar Senha</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="senhaForm">
+                        <div class="mb-3">
+                            <label class="form-label">Senha Atual</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="senhaAtual" required>
+                                <button class="btn btn-outline-secondary toggle-password" type="button">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nova Senha</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="novaSenha" required>
+                                <button class="btn btn-outline-secondary toggle-password" type="button">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Confirmar Nova Senha</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="confirmarSenha" required>
+                                <button class="btn btn-outline-secondary toggle-password" type="button">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarNovaSenha()">
+                        <span class="btn-text">Salvar</span>
+                        <span class="btn-loader d-none">
+                            <i class="fas fa-circle-notch fa-spin"></i>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+`);
+
+// Inicializar o modal
+let senhaModal;
+document.addEventListener('DOMContentLoaded', () => {
+    senhaModal = new bootstrap.Modal(document.getElementById('senhaModal'));
+});
+
+// Função para abrir o modal de alteração de senha
+window.alterarSenha = function() {
+    document.getElementById('senhaForm').reset();
+    senhaModal.show();
+}
+
+// Função para salvar a nova senha
+window.salvarNovaSenha = async function() {
+    const form = document.getElementById('senhaForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const senhaAtual = document.getElementById('senhaAtual').value;
+    const novaSenha = document.getElementById('novaSenha').value;
+    const confirmarSenha = document.getElementById('confirmarSenha').value;
+
+    if (novaSenha !== confirmarSenha) {
+        mostrarAlerta('As senhas não coincidem', 'danger');
+        return;
+    }
+
+    const btnSalvar = document.querySelector('#senhaModal .btn-primary');
+    const btnText = btnSalvar.querySelector('.btn-text');
+    const btnLoader = btnSalvar.querySelector('.btn-loader');
+
+    btnText.classList.add('d-none');
+    btnLoader.classList.remove('d-none');
+    btnSalvar.disabled = true;
+
+    try {
+        const response = await fetch(`${API_URL}/auth/alterar-senha`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                senhaAtual,
+                novaSenha
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.erro || 'Erro ao alterar senha');
+        }
+
+        senhaModal.hide();
+        mostrarAlerta('Senha alterada com sucesso!', 'success');
+    } catch (error) {
+        mostrarAlerta(error.message, 'danger');
+    } finally {
+        btnText.classList.remove('d-none');
+        btnLoader.classList.add('d-none');
+        btnSalvar.disabled = false;
+    }
+}
+
+// Adicionar função para alternar visibilidade da senha
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.toggle-password')) {
+        const button = e.target.closest('.toggle-password');
+        const input = button.parentElement.querySelector('input');
+        const icon = button.querySelector('i');
+
+        // Alternar tipo do input
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+
+        // Alternar ícone
+        icon.classList.toggle('fa-eye');
+        icon.classList.toggle('fa-eye-slash');
+    }
+});
+
+// Adicionar logout
+window.logout = function() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    window.location.href = '/html/login.html';
+}

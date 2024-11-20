@@ -72,6 +72,46 @@ const authController = {
     logout: (req, res) => {
         res.clearCookie('token');
         res.json({ mensagem: 'Logout realizado com sucesso' });
+    },
+
+    alterarSenha: async (req, res) => {
+        const { senhaAtual, novaSenha } = req.body;
+        const userId = req.usuario.id;
+
+        try {
+            // Buscar usuário
+            const result = await pool.query(
+                'SELECT * FROM usuarios WHERE id = $1',
+                [userId]
+            );
+
+            console.log('Usuário encontrado:', result.rows[0]); // Debug
+
+            const usuario = result.rows[0];
+            if (!usuario) {
+                return res.status(404).json({ erro: 'Usuário não encontrado' });
+            }
+
+            // Verificar senha atual
+            const senhaValida = await bcrypt.compare(senhaAtual, usuario.senha);
+            if (!senhaValida) {
+                return res.status(401).json({ erro: 'Senha atual incorreta' });
+            }
+
+            // Gerar hash da nova senha
+            const novaSenhaHash = await bcrypt.hash(novaSenha, 10);
+
+            // Atualizar senha
+            await pool.query(
+                'UPDATE usuarios SET senha = $1 WHERE id = $2',
+                [novaSenhaHash, userId]
+            );
+
+            res.json({ mensagem: 'Senha alterada com sucesso' });
+        } catch (error) {
+            console.error('Erro ao alterar senha:', error);
+            res.status(500).json({ erro: 'Erro ao alterar senha' });
+        }
     }
 };
 
