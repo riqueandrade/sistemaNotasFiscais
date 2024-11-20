@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "admin": "node admin.js"
+    "admin": "node admin.js",
+    "test:db": "node scripts/test-db.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

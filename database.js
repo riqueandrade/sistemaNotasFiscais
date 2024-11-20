@@ -1,35 +1,43 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
-// Configuração do pool com SSL
+// Configuração do pool com SSL e timeout ajustado
 const config = {
     connectionString: process.env.DB_URL,
-    ssl: process.env.NODE_ENV === 'production' ? {
-        rejectUnauthorized: false
-    } : false,
-    connectionTimeoutMillis: 5000,
-    max: 20,
-    idleTimeoutMillis: 30000
+    ssl: {
+        rejectUnauthorized: false // Necessário para conexão com Render
+    },
+    connectionTimeoutMillis: 10000, // Aumentar timeout para 10 segundos
+    max: 10, // Reduzir número máximo de conexões
+    idleTimeoutMillis: 30000,
+    retryDelay: 3000 // Adicionar delay entre tentativas
 };
 
 const pool = new Pool(config);
 
-// Listener de erros do pool
+// Melhorar o tratamento de erros na conexão
 pool.on('error', (err, client) => {
     console.error('Erro inesperado no pool de conexões:', err);
+    if (client) {
+        client.release(true); // Forçar liberação do cliente
+    }
 });
 
-// Função para testar conexão
-async function testConnection() {
-    try {
-        const client = await pool.connect();
-        console.log('Conexão com o banco de dados estabelecida com sucesso!');
-        client.release();
-        return true;
-    } catch (err) {
-        console.error('Erro ao conectar ao banco de dados:', err);
-        return false;
+// Função para testar conexão com retry
+async function testConnection(retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const client = await pool.connect();
+            console.log('Conexão com o banco de dados estabelecida com sucesso!');
+            client.release();
+            return true;
+        } catch (err) {
+            console.error(`Tentativa ${i + 1}/${retries} falhou:`, err);
+            if (i === retries - 1) throw err;
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar 3s antes de tentar novamente
+        }
     }
+    return false;
 }
 
 // Função para criar as tabelas
