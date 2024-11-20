@@ -4,45 +4,55 @@ const PDFDocument = require('pdfkit');
 const notasFiscaisController = {
     // Listar todas as notas
     listarNotas: async (req, res) => {
+        const client = await pool.connect();
         try {
-            const result = await pool.query(`
+            await client.query('BEGIN');
+
+            // Buscar todas as notas com dados do cliente em uma única query
+            const notasResult = await client.query(`
                 SELECT 
-                    nf.*, 
+                    nf.*,
                     c.nome as cliente_nome,
-                    c.cpf_cnpj as cliente_cpf_cnpj
+                    c.cpf_cnpj as cliente_cpf_cnpj,
+                    json_agg(
+                        json_build_object(
+                            'id_produto', i.id_produto,
+                            'quantidade', i.quantidade,
+                            'preco_unitario', i.preco_unitario,
+                            'subtotal_item', i.subtotal_item,
+                            'produto_nome', p.nome
+                        )
+                    ) as itens
                 FROM notas_fiscais nf
                 JOIN clientes c ON c.id_cliente = nf.id_cliente
+                LEFT JOIN itens_nota_fiscal i ON i.id_nota = nf.id_nota
+                LEFT JOIN produtos p ON p.id_produto = i.id_produto
+                GROUP BY nf.id_nota, c.id_cliente
                 ORDER BY nf.data_emissao DESC
             `);
 
-            // Buscar itens para cada nota
-            const notas = result.rows;
-            for (let nota of notas) {
-                const itensResult = await pool.query(`
-                    SELECT 
-                        i.*,
-                        p.nome as produto_nome
-                    FROM itens_nota_fiscal i
-                    JOIN produtos p ON p.id_produto = i.id_produto
-                    WHERE i.id_nota = $1
-                `, [nota.id_nota]);
+            await client.query('COMMIT');
+            res.json(notasResult.rows);
 
-                nota.itens = itensResult.rows;
-            }
-
-            res.json(notas);
         } catch (err) {
+            await client.query('ROLLBACK');
             console.error('Erro ao buscar notas:', err);
             res.status(500).json({ erro: 'Erro interno do servidor' });
+        } finally {
+            client.release();
         }
     },
 
     // Buscar nota específica
     buscarNota: async (req, res) => {
         const { id } = req.params;
+        const client = await pool.connect();
 
         try {
-            const notaResult = await pool.query(`
+            await client.query('BEGIN');
+
+            // Buscar nota com dados do cliente em uma única query
+            const notaResult = await client.query(`
                 SELECT 
                     nf.*,
                     c.nome as cliente_nome,
@@ -53,10 +63,27 @@ const notasFiscaisController = {
                     c.bairro as cliente_bairro,
                     c.cidade as cliente_cidade,
                     c.estado as cliente_estado,
-                    c.cep as cliente_cep
+                    c.cep as cliente_cep,
+                    COALESCE(json_agg(
+                        CASE WHEN i.id_item IS NOT NULL THEN
+                            json_build_object(
+                                'id_item', i.id_item,
+                                'id_produto', i.id_produto,
+                                'quantidade', i.quantidade,
+                                'preco_unitario', i.preco_unitario,
+                                'subtotal_item', i.subtotal_item,
+                                'produto_nome', p.nome,
+                                'produto_descricao', p.descricao
+                            )
+                        END
+                    ) FILTER (WHERE i.id_item IS NOT NULL), '[]') as itens
                 FROM notas_fiscais nf
                 JOIN clientes c ON c.id_cliente = nf.id_cliente
+                LEFT JOIN itens_nota_fiscal i ON i.id_nota = nf.id_nota
+                LEFT JOIN produtos p ON p.id_produto = i.id_produto
                 WHERE nf.id_nota = $1
+                GROUP BY nf.id_nota, c.id_cliente, c.nome, c.cpf_cnpj, c.rua, c.numero, 
+                         c.complemento, c.bairro, c.cidade, c.estado, c.cep
             `, [id]);
 
             if (notaResult.rows.length === 0) {
@@ -65,22 +92,28 @@ const notasFiscaisController = {
 
             const nota = notaResult.rows[0];
 
-            // Buscar itens da nota
-            const itensResult = await pool.query(`
-                SELECT 
-                    i.*,
-                    p.nome as produto_nome,
-                    p.descricao as produto_descricao
-                FROM itens_nota_fiscal i
-                JOIN produtos p ON p.id_produto = i.id_produto
-                WHERE i.id_nota = $1
-            `, [id]);
+            // Converter valores numéricos
+            nota.subtotal = parseFloat(nota.subtotal);
+            nota.impostos = parseFloat(nota.impostos);
+            nota.total = parseFloat(nota.total);
 
-            nota.itens = itensResult.rows;
+            // Converter valores numéricos dos itens
+            nota.itens = nota.itens.map(item => ({
+                ...item,
+                quantidade: parseInt(item.quantidade),
+                preco_unitario: parseFloat(item.preco_unitario),
+                subtotal_item: parseFloat(item.subtotal_item)
+            }));
+
+            await client.query('COMMIT');
             res.json(nota);
+
         } catch (err) {
+            await client.query('ROLLBACK');
             console.error('Erro ao buscar nota:', err);
             res.status(500).json({ erro: 'Erro ao buscar nota fiscal' });
+        } finally {
+            client.release();
         }
     },
 
@@ -250,7 +283,12 @@ const notasFiscaisController = {
             const configResult = await pool.query(
                 'SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1'
             );
-            const config = configResult.rows[0] || {};
+
+            if (!configResult.rows[0]) {
+                return res.status(400).json({ erro: 'Configurações da empresa não encontradas' });
+            }
+
+            const config = configResult.rows[0];
 
             // Criar documento PDF
             const doc = new PDFDocument({
@@ -283,12 +321,12 @@ const notasFiscaisController = {
             doc.font('Helvetica-Bold')
                 .text('DADOS DO EMITENTE')
                 .font('Helvetica')
-                .text(config.razaoSocial || 'EMPRESA EXEMPLO LTDA')
-                .text(`CNPJ: ${formatarCpfCnpj(config.cnpj || '00000000000000')}`)
-                .text(`IE: ${config.ie || 'ISENTO'}`)
-                .text(`${config.rua}, ${config.numero} ${config.complemento || ''}`)
+                .text(config.razaoSocial)
+                .text(`CNPJ: ${formatarCpfCnpj(config.cnpj)}`)
+                .text(`IE: ${config.ie}`)
+                .text(`${config.rua}, ${config.numero}${config.complemento ? ` - ${config.complemento}` : ''}`)
                 .text(`${config.bairro} - ${config.cidade}/${config.estado}`)
-                .text(`CEP: ${formatarCep(config.cep || '')}`)
+                .text(`CEP: ${formatarCep(config.cep)}`)
                 .moveDown();
 
             // Dados do Destinatário
@@ -300,6 +338,7 @@ const notasFiscaisController = {
                 .text(`Endereço: ${[
                     nota.cliente_rua,
                     nota.cliente_numero,
+                    nota.cliente_complemento,
                     nota.cliente_bairro,
                     nota.cliente_cidade,
                     nota.cliente_estado,
@@ -332,18 +371,18 @@ const notasFiscaisController = {
                 xPos += widths[1];
                 doc.text(item.quantidade.toString(), xPos, yPos, { width: widths[2] });
                 xPos += widths[2];
-                doc.text(formatarMoeda(item.preco_unitario), xPos, yPos, { width: widths[3] });
+                doc.text(formatarMoeda(parseFloat(item.preco_unitario)), xPos, yPos, { width: widths[3] });
                 xPos += widths[3];
-                doc.text(formatarMoeda(item.subtotal_item), xPos, yPos, { width: widths[4] });
+                doc.text(formatarMoeda(parseFloat(item.subtotal_item)), xPos, yPos, { width: widths[4] });
                 yPos += 20;
             }
 
             // Totais
             doc.moveDown()
                 .font('Helvetica-Bold')
-                .text(`Subtotal: ${formatarMoeda(nota.subtotal)}`, { align: 'right' })
-                .text(`Impostos: ${formatarMoeda(nota.impostos)}`, { align: 'right' })
-                .text(`Total: ${formatarMoeda(nota.total)}`, { align: 'right' });
+                .text(`Subtotal: ${formatarMoeda(parseFloat(nota.subtotal))}`, { align: 'right' })
+                .text(`Impostos: ${formatarMoeda(parseFloat(nota.impostos))}`, { align: 'right' })
+                .text(`Total: ${formatarMoeda(parseFloat(nota.total))}`, { align: 'right' });
 
             // Rodapé
             doc.moveDown(2)
@@ -366,10 +405,14 @@ const notasFiscaisController = {
 
 // Funções auxiliares
 function formatarCep(cep) {
+    if (!cep) return '';
+    cep = cep.replace(/\D/g, '');
     return cep.replace(/^(\d{5})(\d{3})$/, '$1-$2');
 }
 
 function formatarCpfCnpj(valor) {
+    if (!valor) return '';
+    
     valor = valor.replace(/\D/g, '');
     if (valor.length === 11) {
         return valor.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/g, '$1.$2.$3-$4');

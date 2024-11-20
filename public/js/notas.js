@@ -4,12 +4,21 @@ let notasData = [];
 let clientesData = [];
 let produtosData = [];
 let notaModal;
+let visualizacaoModal;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Inicializar modal do Bootstrap
+        // Verificar autenticação
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/html/login.html';
+            return;
+        }
+
+        // Inicializar modais
         notaModal = new bootstrap.Modal(document.getElementById('notaModal'));
+        visualizacaoModal = new bootstrap.Modal(document.getElementById('visualizacaoModal'));
 
         // Carregar dados do usuário
         const usuario = JSON.parse(localStorage.getItem('usuario'));
@@ -83,18 +92,28 @@ async function carregarProdutos() {
 }
 
 async function carregarNotas() {
-    const response = await fetch(`${API_URL}/notas`, {
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/notas`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/html/login.html';
+                return;
+            }
+            throw new Error('Erro ao carregar notas fiscais');
         }
-    });
 
-    if (!response.ok) {
-        throw new Error('Erro ao carregar notas');
+        notasData = await response.json();
+        renderizarNotas(notasData);
+    } catch (error) {
+        console.error('Erro ao carregar notas:', error);
+        mostrarAlerta('Erro ao carregar notas fiscais', 'danger');
     }
-
-    notasData = await response.json();
-    renderizarNotas(notasData);
 }
 
 function preencherSelectClientes() {
@@ -151,7 +170,6 @@ function preencherSelectProdutos(selectElement = null) {
             
             // Adicionar opções
             produtosData.forEach(produto => {
-                // Converter preço para número
                 const precoVenda = parseFloat(produto.preco_venda);
                 
                 const option = document.createElement('option');
@@ -170,9 +188,8 @@ function preencherSelectProdutos(selectElement = null) {
                 allowClear: true,
                 language: 'pt-BR',
                 searchInputPlaceholder: 'Digite para buscar...',
-                dropdownParent: $('#notaModal'),
-                escapeMarkup: markup => markup
-            }).on('select2:select', function(e) {
+                dropdownParent: $('#notaModal')
+            }).on('select2:select', function() {
                 atualizarPrecoProduto(this);
             });
 
@@ -192,64 +209,6 @@ function preencherSelectProdutos(selectElement = null) {
     }
 }
 
-// Funções de API
-async function carregarNotas() {
-    try {
-        const response = await fetch(`${API_URL}/notas`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                window.location.href = '/html/login.html';
-                return;
-            }
-            throw new Error('Erro ao carregar notas');
-        }
-
-        notasData = await response.json();
-        renderizarNotas(notasData);
-    } catch (error) {
-        mostrarAlerta('Erro ao carregar notas fiscais', 'danger');
-    }
-}
-
-async function carregarClientes() {
-    try {
-        const response = await fetch(`${API_URL}/clientes`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-
-        if (!response.ok) throw new Error('Erro ao carregar clientes');
-
-        clientesData = await response.json();
-        preencherSelectClientes();
-    } catch (error) {
-        mostrarAlerta('Erro ao carregar clientes', 'danger');
-    }
-}
-
-async function carregarProdutos() {
-    try {
-        const response = await fetch(`${API_URL}/produtos`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-
-        if (!response.ok) throw new Error('Erro ao carregar produtos');
-
-        produtosData = await response.json();
-        preencherSelectProdutos();
-    } catch (error) {
-        mostrarAlerta('Erro ao carregar produtos', 'danger');
-    }
-}
-
 // Funções de UI
 function renderizarNotas(notas) {
     const tbody = document.getElementById('notasTableBody');
@@ -262,28 +221,35 @@ function renderizarNotas(notas) {
     }
 
     emptyMessage.style.display = 'none';
-    tbody.innerHTML = notas.map(nota => `
-        <tr>
-            <td>${nota.id_nota}</td>
-            <td>${formatarData(nota.data_emissao)}</td>
-            <td>${buscarNomeCliente(nota.id_cliente)}</td>
-            <td>${nota.itens.length} item(ns)</td>
-            <td>R$ ${nota.subtotal.toFixed(2)}</td>
-            <td>R$ ${nota.impostos.toFixed(2)}</td>
-            <td>R$ ${nota.total.toFixed(2)}</td>
-            <td>
-                <button class="btn btn-action btn-view me-1" onclick="visualizarNota(${nota.id_nota})">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button class="btn btn-action btn-print me-1" onclick="imprimirNota(${nota.id_nota})">
-                    <i class="fas fa-print"></i>
-                </button>
-                <button class="btn btn-action btn-delete" onclick="excluirNota(${nota.id_nota})">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = notas.map(nota => {
+        // Converter valores para números
+        const subtotal = parseFloat(nota.subtotal);
+        const impostos = parseFloat(nota.impostos);
+        const total = parseFloat(nota.total);
+
+        return `
+            <tr>
+                <td>${nota.id_nota}</td>
+                <td>${formatarData(nota.data_emissao)}</td>
+                <td>${buscarNomeCliente(nota.id_cliente)}</td>
+                <td>${nota.itens.length} item(ns)</td>
+                <td>R$ ${subtotal.toFixed(2)}</td>
+                <td>R$ ${impostos.toFixed(2)}</td>
+                <td>R$ ${total.toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-action btn-view me-1" onclick="visualizarNota(${nota.id_nota})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-action btn-print me-1" onclick="imprimirNota(${nota.id_nota})">
+                        <i class="fas fa-print"></i>
+                    </button>
+                    <button class="btn btn-action btn-delete" onclick="excluirNota(${nota.id_nota})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 function adicionarProduto() {
@@ -333,7 +299,7 @@ function removerProduto(button) {
 }
 
 function atualizarPrecoProduto(select) {
-    const row = $(select).closest('.row');
+    const row = $(select).closest('.produto-item');
     const precoInput = row.find('.preco-input');
     const quantidadeInput = row.find('.quantidade-input');
     const subtotalInput = row.find('.subtotal-input');
@@ -360,14 +326,18 @@ function atualizarPrecoProduto(select) {
 function calcularTotais() {
     let subtotal = 0;
 
-    $('.produto-item').each(function () {
+    $('.produto-item').each(function() {
         const row = $(this);
         const select = row.find('.produto-select');
         const quantidade = parseInt(row.find('.quantidade-input').val()) || 0;
 
         if (select.val() && quantidade > 0) {
             const preco = parseFloat(select.find(':selected').data('preco'));
-            subtotal += preco * quantidade;
+            const itemSubtotal = preco * quantidade;
+            subtotal += itemSubtotal;
+
+            // Atualizar subtotal do item
+            row.find('.subtotal-input').val(`R$ ${itemSubtotal.toFixed(2)}`);
         }
     });
 
@@ -379,10 +349,11 @@ function calcularTotais() {
     $('#total').val(`R$ ${total.toFixed(2)}`);
 }
 
-// Atualizar evento de quantidade
-$(document).on('input', '.quantidade-input', function () {
-    const row = $(this).closest('.row');
+// Adicionar listeners para quantidade
+$(document).on('input', '.quantidade-input', function() {
+    const row = $(this).closest('.produto-item');
     const select = row.find('.produto-select');
+    
     if (select.val()) {
         const preco = parseFloat(select.find(':selected').data('preco'));
         const quantidade = parseInt($(this).val()) || 0;
