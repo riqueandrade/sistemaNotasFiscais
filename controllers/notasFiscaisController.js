@@ -242,6 +242,8 @@ const notasFiscaisController = {
         const { id } = req.params;
 
         try {
+            console.log('Iniciando geração do PDF para nota:', id);
+
             // Buscar dados da nota
             const notaResult = await pool.query(`
                 SELECT 
@@ -260,11 +262,30 @@ const notasFiscaisController = {
                 WHERE nf.id_nota = $1
             `, [id]);
 
+            console.log('Resultado da busca da nota:', notaResult.rows);
+
             if (notaResult.rows.length === 0) {
+                console.log('Nota não encontrada:', id);
                 return res.status(404).json({ erro: 'Nota fiscal não encontrada' });
             }
 
             const nota = notaResult.rows[0];
+            console.log('Dados da nota:', nota);
+
+            // Buscar configurações da empresa
+            const configResult = await pool.query(
+                'SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1'
+            );
+
+            console.log('Resultado da busca de configurações:', configResult.rows);
+
+            if (!configResult.rows[0]) {
+                console.log('Configurações não encontradas');
+                return res.status(400).json({ erro: 'Configurações da empresa não encontradas' });
+            }
+
+            const config = configResult.rows[0];
+            console.log('Configurações:', config);
 
             // Buscar itens da nota
             const itensResult = await pool.query(`
@@ -277,128 +298,134 @@ const notasFiscaisController = {
                 WHERE i.id_nota = $1
             `, [id]);
 
+            console.log('Itens da nota:', itensResult.rows);
+
+            if (itensResult.rows.length === 0) {
+                console.log('Nota sem itens');
+                return res.status(400).json({ erro: 'Nota fiscal sem itens' });
+            }
+
             nota.itens = itensResult.rows;
 
-            // Buscar configurações da empresa
-            const configResult = await pool.query(
-                'SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1'
-            );
-
-            if (!configResult.rows[0]) {
-                return res.status(400).json({ erro: 'Configurações da empresa não encontradas' });
-            }
-
-            const config = configResult.rows[0];
-
             // Criar documento PDF
-            const doc = new PDFDocument({
-                size: 'A4',
-                margin: 40
-            });
-
-            // Configurar resposta
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=nota_fiscal_${id}.pdf`);
-            doc.pipe(res);
-
-            // Cabeçalho
-            doc.fontSize(16)
-                .font('Helvetica-Bold')
-                .text('NOTA FISCAL', { align: 'center' })
-                .fontSize(12)
-                .text('DOCUMENTO AUXILIAR', { align: 'center' })
-                .moveDown();
-
-            // Número e Data
-            doc.fontSize(10)
-                .font('Helvetica')
-                .text(`Nº: ${nota.id_nota.toString().padStart(6, '0')}`)
-                .text(`Data: ${new Date(nota.data_emissao).toLocaleDateString('pt-BR')}`)
-                .text(`Hora: ${new Date(nota.data_emissao).toLocaleTimeString('pt-BR')}`)
-                .moveDown();
-
-            // Dados do Emitente
-            doc.font('Helvetica-Bold')
-                .text('DADOS DO EMITENTE')
-                .font('Helvetica')
-                .text(config.razaoSocial)
-                .text(`CNPJ: ${formatarCpfCnpj(config.cnpj)}`)
-                .text(`IE: ${config.ie}`)
-                .text(`${config.rua}, ${config.numero}${config.complemento ? ` - ${config.complemento}` : ''}`)
-                .text(`${config.bairro} - ${config.cidade}/${config.estado}`)
-                .text(`CEP: ${formatarCep(config.cep)}`)
-                .moveDown();
-
-            // Dados do Destinatário
-            doc.font('Helvetica-Bold')
-                .text('DADOS DO DESTINATÁRIO')
-                .font('Helvetica')
-                .text(`Nome/Razão Social: ${nota.cliente_nome}`)
-                .text(`CPF/CNPJ: ${formatarCpfCnpj(nota.cliente_cpf_cnpj)}`)
-                .text(`Endereço: ${[
-                    nota.cliente_rua,
-                    nota.cliente_numero,
-                    nota.cliente_complemento,
-                    nota.cliente_bairro,
-                    nota.cliente_cidade,
-                    nota.cliente_estado,
-                    formatarCep(nota.cliente_cep)
-                ].filter(Boolean).join(', ')}`)
-                .moveDown();
-
-            // Tabela de Produtos
-            const headers = ['Cód.', 'Descrição', 'Qtd.', 'Valor Unit.', 'Total'];
-            const widths = [50, 240, 70, 90, 90];
-            let xPos = 40;
-            let yPos = doc.y;
-
-            // Cabeçalho da tabela
-            doc.font('Helvetica-Bold');
-            headers.forEach((header, i) => {
-                doc.text(header, xPos, yPos, { width: widths[i], align: 'left' });
-                xPos += widths[i];
-            });
-
-            // Linhas de produtos
-            yPos += 20;
-            doc.font('Helvetica');
-
-            for (const item of nota.itens) {
-                xPos = 40;
-                doc.text(item.id_produto.toString(), xPos, yPos, { width: widths[0] });
-                xPos += widths[0];
-                doc.text(item.produto_nome, xPos, yPos, { width: widths[1] });
-                xPos += widths[1];
-                doc.text(item.quantidade.toString(), xPos, yPos, { width: widths[2] });
-                xPos += widths[2];
-                doc.text(formatarMoeda(parseFloat(item.preco_unitario)), xPos, yPos, { width: widths[3] });
-                xPos += widths[3];
-                doc.text(formatarMoeda(parseFloat(item.subtotal_item)), xPos, yPos, { width: widths[4] });
-                yPos += 20;
-            }
-
-            // Totais
-            doc.moveDown()
-                .font('Helvetica-Bold')
-                .text(`Subtotal: ${formatarMoeda(parseFloat(nota.subtotal))}`, { align: 'right' })
-                .text(`Impostos: ${formatarMoeda(parseFloat(nota.impostos))}`, { align: 'right' })
-                .text(`Total: ${formatarMoeda(parseFloat(nota.total))}`, { align: 'right' });
-
-            // Rodapé
-            doc.moveDown(2)
-                .fontSize(8)
-                .font('Helvetica')
-                .text('Documento sem valor fiscal - Apenas para controle interno', {
-                    align: 'center',
-                    color: 'grey'
+            try {
+                const doc = new PDFDocument({
+                    size: 'A4',
+                    margin: 40,
+                    bufferPages: true
                 });
 
-            // Finalizar PDF
-            doc.end();
+                // Configurar resposta
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', `attachment; filename=nota_fiscal_${id}.pdf`);
+
+                // Pipe o PDF para a resposta
+                doc.pipe(res);
+
+                // Cabeçalho
+                doc.fontSize(16)
+                    .font('Helvetica-Bold')
+                    .text('NOTA FISCAL', { align: 'center' })
+                    .fontSize(12)
+                    .text('DOCUMENTO AUXILIAR', { align: 'center' })
+                    .moveDown();
+
+                // Número e Data
+                doc.fontSize(10)
+                    .font('Helvetica')
+                    .text(`Nº: ${nota.id_nota.toString().padStart(6, '0')}`)
+                    .text(`Data: ${new Date(nota.data_emissao).toLocaleDateString('pt-BR')}`)
+                    .text(`Hora: ${new Date(nota.data_emissao).toLocaleTimeString('pt-BR')}`)
+                    .moveDown();
+
+                // Dados do Emitente
+                doc.font('Helvetica-Bold')
+                    .text('DADOS DO EMITENTE')
+                    .font('Helvetica')
+                    .text(config.razaosocial)
+                    .text(`CNPJ: ${formatarCpfCnpj(config.cnpj)}`)
+                    .text(`IE: ${config.ie}`)
+                    .text(`${config.rua}, ${config.numero}${config.complemento ? ` - ${config.complemento}` : ''}`)
+                    .text(`${config.bairro} - ${config.cidade}/${config.estado}`)
+                    .text(`CEP: ${formatarCep(config.cep)}`)
+                    .moveDown();
+
+                // Dados do Destinatário
+                doc.font('Helvetica-Bold')
+                    .text('DADOS DO DESTINATÁRIO')
+                    .font('Helvetica')
+                    .text(`Nome/Razão Social: ${nota.cliente_nome}`)
+                    .text(`CPF/CNPJ: ${formatarCpfCnpj(nota.cliente_cpf_cnpj)}`)
+                    .text(`Endereço: ${[
+                        nota.cliente_rua,
+                        nota.cliente_numero,
+                        nota.cliente_complemento,
+                        nota.cliente_bairro,
+                        nota.cliente_cidade,
+                        nota.cliente_estado,
+                        formatarCep(nota.cliente_cep)
+                    ].filter(Boolean).join(', ')}`)
+                    .moveDown();
+
+                // Tabela de Produtos
+                const headers = ['Cód.', 'Descrição', 'Qtd.', 'Valor Unit.', 'Total'];
+                const widths = [50, 240, 70, 90, 90];
+                let xPos = 40;
+                let yPos = doc.y;
+
+                // Cabeçalho da tabela
+                doc.font('Helvetica-Bold');
+                headers.forEach((header, i) => {
+                    doc.text(header, xPos, yPos, { width: widths[i], align: 'left' });
+                    xPos += widths[i];
+                });
+
+                // Linhas de produtos
+                yPos += 20;
+                doc.font('Helvetica');
+
+                for (const item of nota.itens) {
+                    xPos = 40;
+                    doc.text(item.id_produto.toString(), xPos, yPos, { width: widths[0] });
+                    xPos += widths[0];
+                    doc.text(item.produto_nome, xPos, yPos, { width: widths[1] });
+                    xPos += widths[1];
+                    doc.text(item.quantidade.toString(), xPos, yPos, { width: widths[2] });
+                    xPos += widths[2];
+                    doc.text(formatarMoeda(parseFloat(item.preco_unitario)), xPos, yPos, { width: widths[3] });
+                    xPos += widths[3];
+                    doc.text(formatarMoeda(parseFloat(item.subtotal_item)), xPos, yPos, { width: widths[4] });
+                    yPos += 20;
+                }
+
+                // Totais
+                doc.moveDown()
+                    .font('Helvetica-Bold')
+                    .text(`Subtotal: ${formatarMoeda(parseFloat(nota.subtotal))}`, { align: 'right' })
+                    .text(`Impostos: ${formatarMoeda(parseFloat(nota.impostos))}`, { align: 'right' })
+                    .text(`Total: ${formatarMoeda(parseFloat(nota.total))}`, { align: 'right' });
+
+                // Rodapé
+                doc.moveDown(2)
+                    .fontSize(8)
+                    .font('Helvetica')
+                    .text('Documento sem valor fiscal - Apenas para controle interno', {
+                        align: 'center',
+                        color: 'grey'
+                    });
+
+                // Finalizar o documento
+                doc.end();
+                console.log('PDF gerado com sucesso');
+
+            } catch (pdfError) {
+                console.error('Erro ao gerar PDF:', pdfError);
+                return res.status(500).json({ erro: 'Erro ao gerar PDF: ' + pdfError.message });
+            }
 
         } catch (err) {
-            console.error('Erro ao gerar PDF:', err);
-            res.status(500).json({ erro: 'Erro ao gerar PDF da nota fiscal' });
+            console.error('Erro ao processar dados para PDF:', err);
+            res.status(500).json({ erro: 'Erro ao gerar PDF da nota fiscal: ' + err.message });
         }
     }
 };
@@ -424,4 +451,4 @@ function formatarMoeda(valor) {
     return `R$ ${valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 }
 
-module.exports = notasFiscaisController; 
+module.exports = notasFiscaisController;

@@ -9,7 +9,8 @@ const config = {
     },
     connectionTimeoutMillis: 10000, // 10 segundos
     idleTimeoutMillis: 30000,
-    max: 20 // Número máximo de conexões no pool
+    max: 20, // Número máximo de conexões no pool
+    timezone: 'America/Sao_Paulo'
 };
 
 const pool = new Pool(config);
@@ -55,6 +56,23 @@ async function initDatabase() {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+
+        // Configurar timezone
+        await client.query(`
+            ALTER DATABASE "${process.env.DB_URL.split('/').pop()}" 
+            SET timezone TO 'America/Sao_Paulo'
+        `);
+        
+        // Criar ou atualizar função para timestamp automático
+        await client.query(`
+            CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                NEW.updated_at = CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo';
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        `);
 
         // Tabela de usuários
         await client.query(`
@@ -105,12 +123,12 @@ async function initDatabase() {
             CREATE TABLE IF NOT EXISTS notas_fiscais (
                 id_nota SERIAL PRIMARY KEY,
                 id_cliente INTEGER NOT NULL REFERENCES clientes(id_cliente),
-                data_emissao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                data_emissao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 subtotal DECIMAL(10,2) NOT NULL,
                 impostos DECIMAL(10,2) NOT NULL,
                 total DECIMAL(10,2) NOT NULL,
                 status VARCHAR(20) DEFAULT 'emitida',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         `);
 
@@ -131,9 +149,9 @@ async function initDatabase() {
         await client.query(`
             CREATE TABLE IF NOT EXISTS configuracoes (
                 id SERIAL PRIMARY KEY,
-                aliquotaPadrao DECIMAL(5,2) NOT NULL,
+                aliquotapadrao DECIMAL(5,2) NOT NULL,
                 icms DECIMAL(5,2) NOT NULL,
-                razaoSocial VARCHAR(255) NOT NULL,
+                razaosocial VARCHAR(255) NOT NULL,
                 cnpj VARCHAR(20) NOT NULL,
                 ie VARCHAR(20),
                 cep VARCHAR(10) NOT NULL,
@@ -143,7 +161,7 @@ async function initDatabase() {
                 bairro VARCHAR(255) NOT NULL,
                 cidade VARCHAR(255) NOT NULL,
                 estado VARCHAR(2) NOT NULL,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         `);
 

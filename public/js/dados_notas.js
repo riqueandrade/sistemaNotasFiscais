@@ -44,6 +44,7 @@ function aplicarMascaras() {
 
 async function carregarConfiguracoes() {
     try {
+        console.log('Carregando configurações...'); // Debug
         const response = await fetch(`${API_URL}/configuracoes`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -59,16 +60,20 @@ async function carregarConfiguracoes() {
         }
 
         const config = await response.json();
+        console.log('Configurações carregadas:', config); // Debug
         preencherFormulario(config);
     } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
         mostrarAlerta('Erro ao carregar configurações', 'danger');
     }
 }
 
 function preencherFormulario(config) {
-    document.getElementById('aliquotaPadrao').value = config.aliquotaPadrao || 10;
+    console.log('Preenchendo formulário com:', config); // Debug
+
+    document.getElementById('aliquotaPadrao').value = config.aliquotapadrao || 10;
     document.getElementById('icms').value = config.icms || 18;
-    document.getElementById('razaoSocial').value = config.razaoSocial || '';
+    document.getElementById('razaoSocial').value = config.razaosocial || ''; // Corrigido: razaosocial em minúsculo
     document.getElementById('cnpj').value = config.cnpj || '';
     document.getElementById('ie').value = config.ie || '';
     document.getElementById('cep').value = config.cep || '';

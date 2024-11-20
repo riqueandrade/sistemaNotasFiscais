@@ -8,13 +8,9 @@ const configuracoesController = {
                 'SELECT * FROM configuracoes ORDER BY id DESC LIMIT 1'
             );
 
-            // Se não houver configurações, retornar objeto vazio
             if (result.rows.length === 0) {
                 return res.json({});
             }
-
-            // Log para debug
-            console.log('Configurações encontradas:', result.rows[0]);
             
             res.json(result.rows[0]);
         } catch (err) {
@@ -47,7 +43,7 @@ const configuracoesController = {
             // Primeiro, excluir configurações antigas
             await client.query('DELETE FROM configuracoes');
 
-            // Depois, inserir nova configuração com valores padrão caso não fornecidos
+            // Depois, inserir nova configuração
             const result = await client.query(
                 `INSERT INTO configuracoes (
                     aliquotapadrao, icms, razaosocial, cnpj, ie,
@@ -57,7 +53,7 @@ const configuracoesController = {
                 [
                     parseFloat(aliquotaPadrao) || 10,
                     parseFloat(icms) || 18,
-                    razaoSocial || 'RAZÃO SOCIAL NÃO CONFIGURADA', // Valor padrão
+                    razaoSocial || 'RAZÃO SOCIAL NÃO CONFIGURADA',
                     cnpj ? cnpj.replace(/\D/g, '') : '55581647992487',
                     ie ? ie.replace(/\D/g, '') : '452158862888',
                     cep ? cep.replace(/\D/g, '') : '83880089',
@@ -84,50 +80,7 @@ const configuracoesController = {
         } finally {
             client.release();
         }
-    },
-
-    // Adicionar este novo método
-    atualizarRazaoSocial: async () => {
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-
-            // Verificar se existem configurações
-            const checkResult = await client.query('SELECT id FROM configuracoes LIMIT 1');
-            
-            if (checkResult.rows.length > 0) {
-                // Atualizar razão social nas configurações existentes
-                await client.query(`
-                    UPDATE configuracoes 
-                    SET razaosocial = 'SISTEMA DE NOTAS FISCAIS LTDA'
-                    WHERE id = $1
-                `, [checkResult.rows[0].id]);
-            } else {
-                // Inserir novas configurações com a razão social
-                await client.query(`
-                    INSERT INTO configuracoes (
-                        aliquotapadrao, icms, razaosocial, cnpj, ie,
-                        cep, rua, numero, complemento, bairro, cidade, estado
-                    ) VALUES (
-                        10, 18, 'SISTEMA DE NOTAS FISCAIS LTDA', '55581647992487', 
-                        '452158862888', '83880089', 'Rua Thomaz Becker', '310', '',
-                        'Centro', 'Rio Negro', 'PR'
-                    )
-                `);
-            }
-
-            await client.query('COMMIT');
-            console.log('Razão social atualizada com sucesso');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            console.error('Erro ao atualizar razão social:', err);
-        } finally {
-            client.release();
-        }
     }
 };
-
-// Executar a atualização quando o módulo for carregado
-configuracoesController.atualizarRazaoSocial().catch(console.error);
 
 module.exports = configuracoesController; 

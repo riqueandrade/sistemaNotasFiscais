@@ -537,19 +537,26 @@ window.visualizarNota = async function (id) {
 
 window.imprimirNota = async function (id) {
     try {
+        console.log('Iniciando impressão da nota:', id);
+        
         const response = await fetch(`${API_URL}/notas/${id}/pdf`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
 
-        if (!response.ok) throw new Error('Erro ao gerar PDF da nota fiscal');
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Erro ao gerar PDF:', errorData);
+            throw new Error(errorData.erro || 'Erro ao gerar PDF da nota fiscal');
+        }
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         window.open(url);
     } catch (error) {
-        mostrarAlerta('Erro ao gerar PDF da nota fiscal', 'danger');
+        console.error('Erro detalhado:', error);
+        mostrarAlerta(error.message, 'danger');
     }
 }
 
