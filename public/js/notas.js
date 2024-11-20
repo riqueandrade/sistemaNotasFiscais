@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         // Inicializar modal do Bootstrap
         notaModal = new bootstrap.Modal(document.getElementById('notaModal'));
-        
+
         // Carregar dados do usuário
         const usuario = JSON.parse(localStorage.getItem('usuario'));
         if (usuario) {
@@ -39,33 +39,47 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function carregarClientes() {
-    const response = await fetch(`${API_URL}/clientes`, {
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+    try {
+        console.log('Carregando clientes...');
+        const response = await fetch(`${API_URL}/clientes`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Erro ao carregar clientes');
         }
-    });
 
-    if (!response.ok) {
-        throw new Error('Erro ao carregar clientes');
+        clientesData = await response.json();
+        console.log('Clientes carregados:', clientesData);
+        await preencherSelectClientes();
+    } catch (error) {
+        console.error('Erro ao carregar clientes:', error);
+        mostrarAlerta('Erro ao carregar clientes', 'danger');
     }
-
-    clientesData = await response.json();
-    preencherSelectClientes();
 }
 
 async function carregarProdutos() {
-    const response = await fetch(`${API_URL}/produtos`, {
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+    try {
+        console.log('Carregando produtos...');
+        const response = await fetch(`${API_URL}/produtos`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Erro ao carregar produtos');
         }
-    });
 
-    if (!response.ok) {
-        throw new Error('Erro ao carregar produtos');
+        produtosData = await response.json();
+        console.log('Produtos carregados:', produtosData);
+        await preencherSelectProdutos();
+    } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        mostrarAlerta('Erro ao carregar produtos', 'danger');
     }
-
-    produtosData = await response.json();
-    preencherSelectProdutos();
 }
 
 async function carregarNotas() {
@@ -84,39 +98,22 @@ async function carregarNotas() {
 }
 
 function preencherSelectClientes() {
+    console.log('Preenchendo select de clientes...');
     const select = document.getElementById('clienteSelect');
-    if (!select) return;
+    if (!select) {
+        console.error('Select de clientes não encontrado!');
+        return;
+    }
 
-    select.innerHTML = '<option value="">Selecione o cliente...</option>';
-    
-    clientesData.forEach(cliente => {
-        const option = new Option(
-            `${cliente.nome} - ${formatarCpfCnpj(cliente.cpf_cnpj)}`,
-            cliente.id_cliente
-        );
-        select.appendChild(option);
-    });
-
-    // Inicializar Select2
-    $(select).select2({
-        theme: 'bootstrap-5',
-        width: '100%',
-        placeholder: 'Buscar cliente...',
-        allowClear: true
-    });
-}
-
-function preencherSelectProdutos(selectElement = null) {
-    const preencherSelect = (select) => {
-        select.innerHTML = '<option value="">Selecione o produto...</option>';
+    try {
+        // Limpar select
+        select.innerHTML = '<option value="">Selecione o cliente...</option>';
         
-        produtosData.forEach(produto => {
-            const option = new Option(
-                `${produto.nome} - R$ ${produto.preco_venda.toFixed(2)} (Estoque: ${produto.estoque})`,
-                produto.id_produto
-            );
-            option.dataset.preco = produto.preco_venda;
-            option.dataset.estoque = produto.estoque;
+        // Adicionar opções
+        clientesData.forEach(cliente => {
+            const option = document.createElement('option');
+            option.value = cliente.id_cliente;
+            option.textContent = `${cliente.nome} - ${formatarCpfCnpj(cliente.cpf_cnpj)}`;
             select.appendChild(option);
         });
 
@@ -124,11 +121,63 @@ function preencherSelectProdutos(selectElement = null) {
         $(select).select2({
             theme: 'bootstrap-5',
             width: '100%',
-            placeholder: 'Buscar produto...',
-            allowClear: true
-        }).on('select2:select', function(e) {
-            atualizarPrecoProduto(this);
+            placeholder: 'Buscar cliente...',
+            allowClear: true,
+            language: 'pt-BR',
+            searchInputPlaceholder: 'Digite para buscar...',
+            dropdownParent: $('#notaModal'),
+            escapeMarkup: markup => markup
         });
+        
+        console.log('Select2 de clientes inicializado com sucesso!');
+    } catch (error) {
+        console.error('Erro ao inicializar select de clientes:', error);
+        mostrarAlerta('Erro ao carregar lista de clientes', 'danger');
+    }
+}
+
+function preencherSelectProdutos(selectElement = null) {
+    console.log('Preenchendo select de produtos...');
+    
+    const preencherSelect = (select) => {
+        if (!select) {
+            console.error('Select de produtos não encontrado!');
+            return;
+        }
+
+        try {
+            // Limpar select
+            select.innerHTML = '<option value="">Selecione o produto...</option>';
+            
+            // Adicionar opções
+            produtosData.forEach(produto => {
+                const option = document.createElement('option');
+                option.value = produto.id_produto;
+                option.textContent = `${produto.nome} - R$ ${produto.preco_venda.toFixed(2)}`;
+                option.dataset.preco = produto.preco_venda;
+                option.dataset.estoque = produto.estoque;
+                select.appendChild(option);
+            });
+
+            // Inicializar Select2
+            $(select).select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: 'Buscar produto...',
+                allowClear: true,
+                language: 'pt-BR',
+                searchInputPlaceholder: 'Digite para buscar...',
+                dropdownParent: $('#notaModal'),
+                escapeMarkup: markup => markup
+            }).on('select2:select', function(e) {
+                atualizarPrecoProduto(this);
+            });
+
+            console.log('Select2 de produtos inicializado com sucesso!');
+        } catch (error) {
+            console.error('Erro ao inicializar select de produtos:', error);
+            mostrarAlerta('Erro ao carregar lista de produtos', 'danger');
+        }
     };
 
     if (selectElement) {
@@ -148,7 +197,7 @@ async function carregarNotas() {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-        
+
         if (!response.ok) {
             if (response.status === 401) {
                 window.location.href = '/html/login.html';
@@ -171,7 +220,7 @@ async function carregarClientes() {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-        
+
         if (!response.ok) throw new Error('Erro ao carregar clientes');
 
         clientesData = await response.json();
@@ -188,7 +237,7 @@ async function carregarProdutos() {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-        
+
         if (!response.ok) throw new Error('Erro ao carregar produtos');
 
         produtosData = await response.json();
@@ -202,7 +251,7 @@ async function carregarProdutos() {
 function renderizarNotas(notas) {
     const tbody = document.getElementById('notasTableBody');
     const emptyMessage = document.getElementById('emptyMessage');
-    
+
     if (notas.length === 0) {
         tbody.innerHTML = '';
         emptyMessage.style.display = 'block';
@@ -232,112 +281,6 @@ function renderizarNotas(notas) {
             </td>
         </tr>
     `).join('');
-}
-
-function preencherSelectClientes() {
-    const select = document.getElementById('clienteSelect');
-    if (!select) return;
-
-    // Limpar select
-    select.innerHTML = '<option value="">Selecione o cliente...</option>';
-    
-    // Adicionar opções
-    clientesData.forEach(cliente => {
-        const option = new Option(
-            `${cliente.nome} - ${formatarCpfCnpj(cliente.cpf_cnpj)}`,
-            cliente.id_cliente
-        );
-        select.appendChild(option);
-    });
-
-    // Inicializar Select2
-    $(select).select2({
-        theme: 'bootstrap-5',
-        width: '100%',
-        language: 'pt-BR',
-        placeholder: 'Buscar cliente...',
-        allowClear: true,
-        minimumInputLength: 2,
-        templateResult: formatarOpcaoCliente,
-        templateSelection: formatarOpcaoCliente
-    });
-}
-
-function formatarOpcaoCliente(cliente) {
-    if (!cliente.id) return cliente.text;
-    
-    const clienteData = clientesData.find(c => c.id_cliente === parseInt(cliente.id));
-    if (!clienteData) return cliente.text;
-
-    return $(`
-        <div class="d-flex justify-content-between">
-            <div>
-                <strong>${clienteData.nome}</strong><br>
-                <small>${formatarCpfCnpj(clienteData.cpf_cnpj)}</small>
-            </div>
-            <small class="text-muted">${clienteData.cidade}/${clienteData.estado}</small>
-        </div>
-    `);
-}
-
-function preencherSelectProdutos(selectElement = null) {
-    const options = produtosData.map(produto => ({
-        id: produto.id_produto,
-        text: produto.nome,
-        preco: produto.preco_venda,
-        estoque: produto.estoque,
-        categoria: produto.categoria
-    }));
-
-    const initSelect2 = (select) => {
-        $(select).select2({
-            theme: 'bootstrap-5',
-            width: '100%',
-            language: 'pt-BR',
-            placeholder: 'Buscar produto...',
-            allowClear: true,
-            minimumInputLength: 2,
-            data: options,
-            templateResult: formatarOpcaoProduto,
-            templateSelection: formatarOpcaoProduto
-        }).on('select2:select', function(e) {
-            const produtoId = e.params.data.id;
-            const produto = produtosData.find(p => p.id_produto === parseInt(produtoId));
-            if (produto) {
-                const row = $(this).closest('.row');
-                row.find('.quantidade-input').attr('max', produto.estoque);
-                atualizarPrecoProduto(this);
-            }
-        });
-    };
-
-    if (selectElement) {
-        initSelect2(selectElement);
-    } else {
-        document.querySelectorAll('.produto-select').forEach(select => {
-            initSelect2(select);
-        });
-    }
-}
-
-function formatarOpcaoProduto(produto) {
-    if (!produto.id) return produto.text;
-    
-    const produtoData = produtosData.find(p => p.id_produto === parseInt(produto.id));
-    if (!produtoData) return produto.text;
-
-    return $(`
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <strong>${produtoData.nome}</strong><br>
-                <small class="badge bg-secondary">${produtoData.categoria}</small>
-            </div>
-            <div class="text-end">
-                <strong class="text-success">R$ ${produtoData.preco_venda.toFixed(2)}</strong><br>
-                <small class="text-muted">Estoque: ${produtoData.estoque}</small>
-            </div>
-        </div>
-    `);
 }
 
 function adicionarProduto() {
@@ -380,52 +323,65 @@ function removerProduto(button) {
 }
 
 function atualizarPrecoProduto(select) {
-    const row = select.closest('.row');
-    const precoInput = row.querySelector('input[placeholder="Preço"]');
-    const quantidadeInput = row.querySelector('.quantidade-input');
-    
-    const option = select.selectedOptions[0];
-    if (option && option.dataset.preco) {
-        const preco = parseFloat(option.dataset.preco);
-        precoInput.value = `R$ ${preco.toFixed(2)}`;
-        quantidadeInput.max = option.dataset.estoque;
-        
-        if (quantidadeInput.value) {
-            calcularTotais();
-        }
+    const row = $(select).closest('.row');
+    const precoInput = row.find('.preco-input');
+    const quantidadeInput = row.find('.quantidade-input');
+    const subtotalInput = row.find('.subtotal-input');
+
+    const selectedOption = $(select).find(':selected');
+    if (selectedOption.length && selectedOption.val()) {
+        const preco = parseFloat(selectedOption.data('preco'));
+        const quantidade = parseInt(quantidadeInput.val()) || 0;
+
+        precoInput.val(`R$ ${preco.toFixed(2)}`);
+        quantidadeInput.attr('max', selectedOption.data('estoque'));
+
+        const subtotal = preco * quantidade;
+        subtotalInput.val(`R$ ${subtotal.toFixed(2)}`);
+
+        calcularTotais();
     } else {
-        precoInput.value = '';
-        quantidadeInput.value = '';
-        quantidadeInput.max = '';
+        precoInput.val('');
+        subtotalInput.val('');
+        quantidadeInput.val('').attr('max', '');
     }
 }
 
 function calcularTotais() {
-    let subtotalGeral = 0;
-    
-    document.querySelectorAll('.produto-item').forEach(item => {
-        const select = item.querySelector('.produto-select');
-        const quantidade = parseInt(item.querySelector('.quantidade-input').value) || 0;
-        const subtotalInput = item.querySelector('.subtotal-input');
-        
-        if (select.value && quantidade > 0) {
-            const preco = parseFloat(select.selectedOptions[0].dataset.preco);
-            const subtotalItem = quantidade * preco;
-            subtotalGeral += subtotalItem;
-            
-            subtotalInput.value = `R$ ${subtotalItem.toFixed(2)}`;
-        } else {
-            subtotalInput.value = 'R$ 0,00';
+    let subtotal = 0;
+
+    $('.produto-item').each(function () {
+        const row = $(this);
+        const select = row.find('.produto-select');
+        const quantidade = parseInt(row.find('.quantidade-input').val()) || 0;
+
+        if (select.val() && quantidade > 0) {
+            const preco = parseFloat(select.find(':selected').data('preco'));
+            subtotal += preco * quantidade;
         }
     });
 
-    const impostos = parseFloat(document.getElementById('impostos').value) || 0;
-    const valorImpostos = (subtotalGeral * impostos) / 100;
-    const total = subtotalGeral + valorImpostos;
+    const impostos = parseFloat($('#impostos').val()) || 0;
+    const valorImpostos = (subtotal * impostos) / 100;
+    const total = subtotal + valorImpostos;
 
-    document.getElementById('subtotal').value = `R$ ${subtotalGeral.toFixed(2)}`;
-    document.getElementById('total').value = `R$ ${total.toFixed(2)}`;
+    $('#subtotal').val(`R$ ${subtotal.toFixed(2)}`);
+    $('#total').val(`R$ ${total.toFixed(2)}`);
 }
+
+// Atualizar evento de quantidade
+$(document).on('input', '.quantidade-input', function () {
+    const row = $(this).closest('.row');
+    const select = row.find('.produto-select');
+    if (select.val()) {
+        const preco = parseFloat(select.find(':selected').data('preco'));
+        const quantidade = parseInt($(this).val()) || 0;
+        const subtotal = preco * quantidade;
+
+        row.find('.subtotal-input').val(`R$ ${subtotal.toFixed(2)}`);
+        calcularTotais();
+    }
+});
 
 // Funções auxiliares
 function formatarData(data) {
@@ -459,30 +415,30 @@ function mostrarAlerta(mensagem, tipo) {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     document.body.appendChild(alertDiv);
-    
+
     setTimeout(() => {
         alertDiv.remove();
     }, 3000);
 }
 
 // Funções de manipulação de notas
-window.abrirModalNota = function() {
+window.abrirModalNota = function () {
     const form = document.getElementById('notaForm');
     form.reset();
-    
+
     // Limpar produtos exceto o primeiro
     const container = document.getElementById('produtosContainer');
     container.innerHTML = '';
     adicionarProduto();
-    
+
     // Resetar selects
     $('#clienteSelect').val(null).trigger('change');
-    
+
     calcularTotais();
     notaModal.show();
 }
 
-window.salvarNota = async function() {
+window.salvarNota = async function () {
     const form = document.getElementById('notaForm');
     if (!form.checkValidity()) {
         form.reportValidity();
@@ -492,7 +448,7 @@ window.salvarNota = async function() {
     const btnSalvar = document.querySelector('#notaModal .btn-primary');
     const btnText = btnSalvar.querySelector('.btn-text');
     const btnLoader = btnSalvar.querySelector('.btn-loader');
-    
+
     btnText.classList.add('d-none');
     btnLoader.classList.remove('d-none');
     btnSalvar.disabled = true;
@@ -526,7 +482,7 @@ window.salvarNota = async function() {
         notaModal.hide();
         await carregarNotas();
         mostrarAlerta('Nota fiscal emitida com sucesso!', 'success');
-        
+
         // Perguntar se deseja imprimir
         if (confirm('Deseja imprimir a nota fiscal?')) {
             imprimirNota(data.id);
@@ -540,18 +496,18 @@ window.salvarNota = async function() {
     }
 }
 
-window.visualizarNota = async function(id) {
+window.visualizarNota = async function (id) {
     try {
         const response = await fetch(`${API_URL}/notas/${id}`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-        
+
         if (!response.ok) throw new Error('Erro ao carregar nota fiscal');
 
         const nota = await response.json();
-        
+
         // Preencher dados no modal de visualização
         document.getElementById('visualizacao-numero').textContent = `Nº ${nota.id_nota.toString().padStart(6, '0')}`;
         document.getElementById('visualizacao-data').textContent = formatarData(nota.data_emissao);
@@ -581,14 +537,14 @@ window.visualizarNota = async function(id) {
     }
 }
 
-window.imprimirNota = async function(id) {
+window.imprimirNota = async function (id) {
     try {
         const response = await fetch(`${API_URL}/notas/${id}/pdf`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-        
+
         if (!response.ok) throw new Error('Erro ao gerar PDF da nota fiscal');
 
         const blob = await response.blob();
@@ -599,7 +555,7 @@ window.imprimirNota = async function(id) {
     }
 }
 
-window.excluirNota = async function(id) {
+window.excluirNota = async function (id) {
     if (!confirm('Tem certeza que deseja excluir esta nota fiscal?')) return;
 
     try {
@@ -633,7 +589,7 @@ function filtrarNotas() {
 
     let notasFiltradas = notasData.filter(nota => {
         // Filtro por texto (número da nota ou nome do cliente)
-        const matchSearch = 
+        const matchSearch =
             nota.id_nota.toString().includes(searchTerm) ||
             buscarNomeCliente(nota.id_cliente).toLowerCase().includes(searchTerm);
 
