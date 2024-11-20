@@ -1,5 +1,7 @@
 // Configurações e variáveis globais
-const API_URL = 'http://localhost:3000/api';
+const API_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000/api'
+    : 'https://sistemanotasfiscais.onrender.com/api';
 let clientesData = [];
 let clienteModal;
 

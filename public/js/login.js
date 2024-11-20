@@ -1,4 +1,6 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000/api'
+    : 'https://sistemanotasfiscais.onrender.com/api';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Toggle de visibilidade da senha
@@ -49,23 +51,28 @@ async function handleLogin(event) {
     submitButton.disabled = true;
     
     try {
-        console.log('Tentando login com:', { email });
+        console.log('Tentando login em:', API_URL);
         
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ email, senha }),
-            credentials: 'include'
+            credentials: 'include',
+            mode: 'cors'
         });
+
+        console.log('Status da resposta:', response.status);
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.erro || 'Erro ao fazer login');
+        }
 
         const data = await response.json();
         console.log('Resposta do servidor:', data);
-
-        if (!response.ok) {
-            throw new Error(data.erro || 'Erro ao fazer login');
-        }
 
         // Salvar dados do usuário
         localStorage.setItem('token', data.token);
@@ -80,16 +87,15 @@ async function handleLogin(event) {
         }, 1000);
     } catch (error) {
         console.error('Erro detalhado:', error);
-        errorMessage.textContent = error.message;
+        errorMessage.textContent = 'Erro ao conectar com o servidor. Tente novamente.';
         errorMessage.style.display = 'block';
         
         btnText.classList.remove('d-none');
         btnLoader.classList.add('d-none');
         submitButton.disabled = false;
-        
-        submitButton.classList.add('shake');
-        setTimeout(() => submitButton.classList.remove('shake'), 500);
     }
+
+    return false;
 }
 
 // Limpar mensagem de erro quando o usuário começar a digitar
