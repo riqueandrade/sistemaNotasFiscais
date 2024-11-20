@@ -1,9 +1,18 @@
 const { pool } = require('../database');
 const PDFDocument = require('pdfkit');
+const NodeCache = require('node-cache');
+const cache = new NodeCache({ stdTTL: 600 }); // 10 minutos
 
 const notasFiscaisController = {
     // Listar todas as notas
     listarNotas: async (req, res) => {
+        const cacheKey = 'notas_list';
+        const cachedData = cache.get(cacheKey);
+        
+        if (cachedData) {
+            return res.json(cachedData);
+        }
+        
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -33,6 +42,7 @@ const notasFiscaisController = {
 
             await client.query('COMMIT');
             res.json(notasResult.rows);
+            cache.set(cacheKey, notasResult.rows);
 
         } catch (err) {
             await client.query('ROLLBACK');

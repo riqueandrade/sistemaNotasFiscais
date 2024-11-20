@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function carregarClientes() {
     try {
-        console.log('Carregando clientes...');
         const response = await fetch(`${API_URL}/clientes`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -64,7 +63,6 @@ async function carregarClientes() {
         }
 
         clientesData = await response.json();
-        console.log('Clientes carregados:', clientesData);
         await preencherSelectClientes();
     } catch (error) {
         console.error('Erro ao carregar clientes:', error);
@@ -74,7 +72,6 @@ async function carregarClientes() {
 
 async function carregarProdutos() {
     try {
-        console.log('Carregando produtos...');
         const response = await fetch(`${API_URL}/produtos`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -86,7 +83,6 @@ async function carregarProdutos() {
         }
 
         produtosData = await response.json();
-        console.log('Produtos carregados:', produtosData);
         await preencherSelectProdutos();
     } catch (error) {
         console.error('Erro ao carregar produtos:', error);
@@ -120,7 +116,6 @@ async function carregarNotas() {
 }
 
 function preencherSelectClientes() {
-    console.log('Preenchendo select de clientes...');
     const select = document.getElementById('clienteSelect');
     if (!select) {
         console.error('Select de clientes não encontrado!');
@@ -128,10 +123,7 @@ function preencherSelectClientes() {
     }
 
     try {
-        // Limpar select
         select.innerHTML = '<option value="">Selecione o cliente...</option>';
-
-        // Adicionar opções
         clientesData.forEach(cliente => {
             const option = document.createElement('option');
             option.value = cliente.id_cliente;
@@ -139,7 +131,6 @@ function preencherSelectClientes() {
             select.appendChild(option);
         });
 
-        // Inicializar Select2
         $(select).select2({
             theme: 'bootstrap-5',
             width: '100%',
@@ -150,8 +141,6 @@ function preencherSelectClientes() {
             dropdownParent: $('#notaModal'),
             escapeMarkup: markup => markup
         });
-
-        console.log('Select2 de clientes inicializado com sucesso!');
     } catch (error) {
         console.error('Erro ao inicializar select de clientes:', error);
         mostrarAlerta('Erro ao carregar lista de clientes', 'danger');

@@ -1,6 +1,17 @@
+# Dependências
 node_modules/
+
+# Arquivos de ambiente e configuração
 .env
 *.log
+.cache/
+
+# Arquivos do sistema
 .DS_Store
+
+# Banco de dados
 database.sqlite
+
+# Arquivos específicos
 admin.js
+coverage/

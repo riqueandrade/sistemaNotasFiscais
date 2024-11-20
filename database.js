@@ -10,7 +10,7 @@ const config = {
     ssl: {
         rejectUnauthorized: false // Necessário para conexão com Render
     },
-    connectionTimeoutMillis: 10000, // 10 segundos
+    connectionTimeoutMillis: 2000, // 2 segundos
     idleTimeoutMillis: 30000,
     max: 20 // Número máximo de conexões no pool
 };

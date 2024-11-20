@@ -3,6 +3,9 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 require('dotenv').config();
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 
 const app = express();
 
@@ -10,6 +13,34 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(compression());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: [
+                "'self'", 
+                "'unsafe-inline'",
+                "'unsafe-eval'",
+                "https://cdn.jsdelivr.net",
+                "https://code.jquery.com",
+                "https://cdnjs.cloudflare.com"
+            ],
+            scriptSrcAttr: ["'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'",
+                "https://cdn.jsdelivr.net",
+                "https://cdnjs.cloudflare.com",
+                "https://fonts.googleapis.com"
+            ],
+            fontSrc: ["'self'", 
+                "https://cdnjs.cloudflare.com",
+                "https://fonts.gstatic.com"
+            ],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https://sistemanotasfiscais.onrender.com"]
+        }
+    }
+}));
 
 // Configurar CORS
 app.use((req, res, next) => {
@@ -26,7 +57,10 @@ app.use((req, res, next) => {
 });
 
 // Servir arquivos estáticos
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+    maxAge: '1d',
+    etag: true
+}));
 
 // Rotas da API
 app.use('/api/auth', require('./routes/auth'));
@@ -45,6 +79,13 @@ app.use((err, req, res, next) => {
     console.error('Erro:', err);
     res.status(500).json({ erro: 'Erro interno do servidor' });
 });
+
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 100 // limite por IP
+});
+
+app.use('/api/', limiter);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

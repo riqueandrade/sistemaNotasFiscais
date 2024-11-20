@@ -6,7 +6,7 @@ let produtosData = [];
 let produtoModal;
 
 // Inicialização
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
     // Verificar autenticação
     const token = localStorage.getItem('token');
     if (!token) {
@@ -27,16 +27,63 @@ document.addEventListener('DOMContentLoaded', () => {
     // Carregar produtos
     carregarProdutos();
 
-    // Adicionar listeners para filtros
+    // Event Listeners
+    document.addEventListener('click', function(e) {
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
+
+        const action = target.dataset.action;
+        const id = target.dataset.id;
+
+        switch(action) {
+            case 'novo-produto':
+                abrirModalProduto();
+                break;
+            case 'editar':
+                editarProduto(parseInt(id));
+                break;
+            case 'excluir':
+                excluirProduto(parseInt(id));
+                break;
+            case 'salvar':
+                salvarProduto();
+                break;
+        }
+    });
+
+    // Listeners para filtros
     document.getElementById('searchInput').addEventListener('input', filtrarProdutos);
     document.getElementById('categoriaFilter').addEventListener('change', filtrarProdutos);
     document.getElementById('orderBy').addEventListener('change', filtrarProdutos);
-});
+}
+
+// Esperar todos os scripts carregarem
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        // Verificar se Bootstrap está carregado
+        const checkBootstrap = setInterval(() => {
+            if (typeof bootstrap !== 'undefined') {
+                clearInterval(checkBootstrap);
+                initApp();
+            }
+        }, 100);
+
+        // Timeout após 5 segundos
+        setTimeout(() => {
+            clearInterval(checkBootstrap);
+            if (typeof bootstrap === 'undefined') {
+                console.error('Bootstrap não foi carregado corretamente');
+                mostrarAlerta('Erro ao carregar recursos necessários', 'danger');
+            }
+        }, 5000);
+    });
+} else {
+    initApp();
+}
 
 // Funções de API
 async function carregarProdutos() {
     try {
-        console.log('Carregando produtos...'); // Debug
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_URL}/produtos`, {
             headers: {
@@ -53,11 +100,10 @@ async function carregarProdutos() {
         }
 
         const data = await response.json();
-        console.log('Produtos carregados:', data); // Debug
         produtosData = data;
         renderizarProdutos(produtosData);
     } catch (error) {
-        console.error('Erro detalhado:', error); // Debug
+        console.error('Erro ao carregar produtos:', error);
         mostrarAlerta('Erro ao carregar produtos', 'danger');
     }
 }
@@ -166,10 +212,10 @@ function renderizarProdutos(produtos) {
                     </span>
                 </td>
                 <td class="actions-cell">
-                    <button class="btn btn-action btn-edit me-1" onclick="editarProduto(${produto.id_produto})">
+                    <button class="btn btn-action btn-edit me-1" data-action="editar" data-id="${produto.id_produto}">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn btn-action btn-delete" onclick="excluirProduto(${produto.id_produto})">
+                    <button class="btn btn-action btn-delete" data-action="excluir" data-id="${produto.id_produto}">
                         <i class="fas fa-trash"></i>
                     </button>
 
@@ -179,13 +225,13 @@ function renderizarProdutos(produtos) {
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
-                                <a class="dropdown-item" href="#" onclick="editarProduto(${produto.id_produto})">
+                                <a class="dropdown-item" href="#" data-action="editar" data-id="${produto.id_produto}">
                                     <i class="fas fa-edit"></i>
                                     Editar
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item text-danger" href="#" onclick="excluirProduto(${produto.id_produto})">
+                                <a class="dropdown-item text-danger" href="#" data-action="excluir" data-id="${produto.id_produto}">
                                     <i class="fas fa-trash"></i>
                                     Excluir
                                 </a>
