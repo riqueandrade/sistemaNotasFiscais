@@ -60,8 +60,9 @@ async function initDatabase() {
         await client.query('BEGIN');
 
         // Configurar timezone
+        const dbName = dbUrl.split('/').pop().split('?')[0];
         await client.query(`
-            ALTER DATABASE "${dbUrl.split('/').pop()}" 
+            ALTER DATABASE "${dbName}" 
             SET timezone TO 'America/Sao_Paulo'
         `);
         
